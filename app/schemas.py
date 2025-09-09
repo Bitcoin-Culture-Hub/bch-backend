@@ -1,5 +1,9 @@
 from pydantic import BaseModel, EmailStr
 
+
+class UserJoin(BaseModel):
+    email:str
+
 class UserCreate(BaseModel):
     username: str
     email: str

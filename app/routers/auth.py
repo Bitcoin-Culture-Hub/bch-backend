@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import EmailStr, BaseModel
-from ..db import collection
+from ..db import collection, waitlist
 from .. import models, schemas, utils
 from ..services.mailer import add_subscriber
 
@@ -43,7 +43,22 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     return {"status": "login done"}
     return {"access_token": token, "token_type": "bearer"}'''
     
-# Request body
+    
+@router.post("/join", response_model=schemas.Token, status_code=201)
+async def join(user: schemas.UserJoin):
+    if waitlist.find_one({"email": user.email}):
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    user_doc = {"email": user.email}
+    result = waitlist.insert_one(user_doc)
+    user_id = str(result.inserted_id)
+
+    await add_subscriber(user.email)
+
+    token = utils.create_access_token({"sub": user.email})
+    return {"access_token": token, "token_type": "bearer"}
+
+
 class DummyLogin(BaseModel):
     email: EmailStr
     archetype: str | None = None   # optional field
