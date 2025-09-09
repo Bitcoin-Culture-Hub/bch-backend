@@ -19,6 +19,6 @@ app.add_middleware(
 )
 
 # routers
-app.include_router(health.router)       # GET /
-app.include_router(auth.router)         # /auth/*
+app.include_router(auth.router) 
+app.include_router(health.router)       # GET /        # /auth/*
 app.include_router(users.router)
