@@ -21,8 +21,10 @@ async def signup(user: schemas.UserCreate):
     user_doc = {
         "username": user.username,
         "email": user.email,
-        "hashed_password": hashed_password
+        "hashed_password": hashed_password,
+        "results": user.results or {}   
     }
+
 
     result = collection.insert_one(user_doc)
     user_id = str(result.inserted_id)

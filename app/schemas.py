@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from typing import Any, Dict, Optional,List
 
 
 class UserJoin(BaseModel):
@@ -6,8 +7,10 @@ class UserJoin(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
+    results: Optional[List[Dict[str, Any]]] = None  
+  
 
 class UserLogin(BaseModel):
     email: EmailStr
