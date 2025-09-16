@@ -10,8 +10,8 @@ async def add_subscriber(email: str, archetype: str | None = None):
 
     payload = {
         "email": email,
-        "fields": {}
-        "groups": ["165354171714766481"] # type: ignore
+        "fields": {},
+        "groups": ["165354171714766481"]
     }
 
     # If archetype is provided, add it
