@@ -63,38 +63,28 @@ async def join(user: schemas.UserJoin):
 
 class DummyLogin(BaseModel):
     email: EmailStr
-    archetype: str | None = None   # optional field
+    archetype: str | None = None   
 
-@router.post("/login")
-async def dummy_login(user: DummyLogin):
-    # Call MailerLite service to add subscriber
+@router.post("/login", response_model=schemas.Token)
+async def login(user: schemas.UserLogin):
+    user_doc = collection.find_one({"email": user.email})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not utils.verify_password(user.password, user_doc["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
     try:
         await add_subscriber(user.email, user.archetype)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MailerLite failed: {str(e)}")
+        print(f"MailerLite failed: {e}")
+
+    token = utils.create_access_token({"sub": str(user_doc["_id"])})
 
     return {
-        "message": " login successful",
-        "email": user.email,
-        "archetype": user.archetype
-    }
+            "access_token": token,
+            "token_type": "bearer",
+            "username": user_doc["username"],
+            "email": user_doc["email"]
+        }
 
-
-
-# @router.get("/me", response_model=schemas.UserOut)
-# def me(authorization: str | None = Header(default=None), db: Session = Depends(get_db)):
-#     if not authorization or not authorization.startswith("Bearer "):
-#         raise HTTPException(status_code=401, detail="Missing bearer token")
-#     token = authorization.split(" ", 1)[1]
-#     try:
-#         payload = utils.decode_token(token)
-#         if payload.get("type") != "access":
-#             raise HTTPException(status_code=401, detail="Invalid token type")
-#         user_id = int(payload["sub"])
-#     except Exception:
-#         raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-#     user = db.get(models.User, user_id)
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user
