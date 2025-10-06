@@ -7,7 +7,7 @@ from ..services.mailer import add_subscriber
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup", response_model=schemas.Token, status_code=201)
+@router.post("/signup", response_model=schemas.RegisterToken, status_code=201)
 async def signup(user: schemas.UserCreate):
     # email unique
     if collection.find_one({"email": user.email}):
