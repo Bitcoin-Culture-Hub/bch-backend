@@ -11,6 +11,7 @@ client = MongoClient(settings.MONGO_URI)
 db = client["BitcoinCultureHub"]
 collection = db["users"]
 waitlist = db["waitlist"]
+bookmark_collection = db["bookmarks"]
 # engine = create_engine(settings.DATABASE_URL)
 
 # SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
