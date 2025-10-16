@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, health, users, explore
+from app.routers import auth, health, users, explore,item
 #from .db import Base, engine
 
 
@@ -27,3 +27,4 @@ app.include_router(auth.router)
 app.include_router(health.router)       # GET /        # /auth/*
 app.include_router(users.router)
 app.include_router(explore.router)
+app.include_router(item.router)
