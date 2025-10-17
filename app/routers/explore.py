@@ -9,7 +9,7 @@ router = APIRouter(prefix="/explore", tags=["Explore"])
 
 # Mongo setup
 client = MongoClient(os.getenv("MONGO_URI"))
-db = client["bch"]
+db = client["BitcoinCultureHub"]
 col = db["explore"]
 fs = gridfs.GridFS(db, collection="images")
 
