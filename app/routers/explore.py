@@ -17,19 +17,27 @@ fs = gridfs.GridFS(db, collection="images")
 # ✅ List items (optionally by category)
 @router.get("/", response_model=list[dict])
 def list_items(category: str | None = Query(default=None)):
-    
-    if not category:
-        # return all cards when no category filter is applied
-        items = list(col.find({}, {"_id": 0}))
-        print(f"[Explore] Returning {len(items)} total items (no category filter)")
-        return items
+    """
+    Return all explore items, optionally filtered by category,
+    and attach a proper MongoDB GridFS image URL.
+    """
+    base_url = "http://localhost:8000"  # change when deploying
+    q = {}
 
-    cleaned = category.strip().rstrip(",").lower()
-    q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
-    q = {"category": category} if category else {}
-    # hide Mongo _id
+    if category:
+        cleaned = category.strip().rstrip(",").lower()
+        q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
+
     items = list(col.find(q, {"_id": 0}))
+
+    for item in items:
+        image_id = item.get("image_id")
+        if image_id:
+            item["image_url"] = f"{base_url}/explore/image/{image_id}"
+
+    print(f"[Explore] Returning {len(items)} items (filter={category})")
     return items
+
 
 
 # ✅ Get single item by ID
