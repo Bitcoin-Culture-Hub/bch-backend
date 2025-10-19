@@ -16,21 +16,31 @@ fs = gridfs.GridFS(db, collection="images")
 
 @router.get("/", response_model=list[dict])
 def list_items(category: str | None = Query(default=None)):
-    
-    if not category:
-        # return all cards when no category filter is applied
-        items = list(col.find({}, {"_id": 0}))
-        print(f"[Explore] Returning {len(items)} total items (no category filter)")
-        return items
+    """
+    Return all explore items, optionally filtered by category,
+    and attach a proper MongoDB GridFS image URL.
+    """
+    print('hi')
+    base_url = "https://bch-backend-7vjs.onrender.com/"  # change when deploying
+    q = {}
 
-    cleaned = category.strip().rstrip(",").lower()
-    q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
-    q = {"category": category} if category else {}
-    # hide Mongo _id
+    if category:
+        cleaned = category.strip().rstrip(",").lower()
+        q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
+
     items = list(col.find(q, {"_id": 0}))
+
+    for item in items:
+        image_id = item.get("image_id")
+        if image_id:
+            item["image_url"] = f"{base_url}/explore/image/{image_id}"
+
+    print(f"[Explore] Returning {len(items)} items (filter={category})")
     return items
 
 
+
+# ✅ Get single item by ID
 @router.get("/{item_id}", response_model=dict)
 def get_item(item_id: str):
     item = (
@@ -41,6 +51,31 @@ def get_item(item_id: str):
         raise HTTPException(404, "Item not found")
     return item
 
+@router.put("/accept-by-title/{title}", response_model=dict)
+def accept_item_by_title(title: str):
+    # Update the first document matching the title
+    result = col.update_one(
+        {"title": title},
+        {"$set": {"accepted": True}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Return the updated document
+    item = col.find_one({"title": title}, {"_id": 0})
+    return item
+@router.delete("/delete-by-title/{title}", response_model=dict)
+def delete_item_by_title(title: str):
+    """
+    Delete the first document in the collection matching the given title.
+    """
+    result = col.delete_one({"title": title})
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return {"ok": True, "title": title, "deleted_count": result.deleted_count}
 
 @router.get("/image/{image_id}")
 def serve_image(image_id: str):
@@ -77,6 +112,7 @@ async def create_item(
     tags: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
+    print('end point getting hit')
     image_id = None
     if file:
         blob = await file.read()
@@ -91,7 +127,8 @@ async def create_item(
         "tags": [t.strip() for t in (tags or "").split(",") if t.strip()],
         "image_id": str(image_id) if image_id else None,
         "image_url": f"/explore/image/{image_id}" if image_id else None,
+        "accepted":False
     }
-
+    print(doc)
     col.update_one({"id": doc["id"]}, {"$set": doc}, upsert=True)
     return {"ok": True, "id": doc["id"], "image_id": doc["image_id"]}

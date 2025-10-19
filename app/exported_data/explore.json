@@ -1,0 +1,405 @@
+[
+    {
+        "title": "Bitfest",
+        "description": "Conference held in Manchester, United Kingdom in 2025 focused on Bitcoin and related technologies.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "UK"
+        ],
+        "image_url": "/explore/image/68e7cd399b43dfd7566093e0",
+        "type": "event",
+        "image_id": "68e7cd399b43dfd7566093e0"
+    },
+    {
+        "title": "Economia Bitcoin",
+        "description": "Conference in Berlin, Germany, 2025 showcasing Bitcoin adoption and innovation.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "EU"
+        ],
+        "image_url": "/explore/image/68e7cd3c9b43dfd7566093ec",
+        "type": "event",
+        "image_id": "68e7cd3c9b43dfd7566093ec"
+    },
+    {
+        "title": "Bitcoin Mini Conference",
+        "description": "Conference in Seoul, South Korea, 2025 bringing together Bitcoin communities in Asia.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "Asia"
+        ],
+        "image_url": "/explore/image/68e7cd3c9b43dfd7566093f8",
+        "type": "event",
+        "image_id": "68e7cd3c9b43dfd7566093f8"
+    },
+    {
+        "title": "Africa Bitcoin Conference",
+        "description": "Conference in Port Louis, Mauritius, 2025 focusing on Bitcoin adoption across Africa.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "Africa"
+        ],
+        "image_url": "/explore/image/68e7cd3d9b43dfd7566093ff",
+        "type": "event",
+        "image_id": "68e7cd3d9b43dfd7566093ff"
+    },
+    {
+        "title": "Mayan Bitcoin Conference",
+        "description": "Conference in M\u00e9rida, Mexico, 2025 exploring Bitcoin culture and finance in North America.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "NA"
+        ],
+        "image_url": "/explore/image/68e7cd3d9b43dfd756609409",
+        "type": "event",
+        "image_id": "68e7cd3d9b43dfd756609409"
+    },
+    {
+        "title": "Bitcoin Mena",
+        "description": "Conference in Abu Dhabi, UAE, 2025 highlighting Bitcoin adoption across the Middle East and Asia.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "Asia"
+        ],
+        "image_url": "/explore/image/68e7cd3e9b43dfd756609413",
+        "type": "event",
+        "image_id": "68e7cd3e9b43dfd756609413"
+    },
+    {
+        "title": "Bitcoin++ Taipei",
+        "description": "Conference in Taipei, Taiwan, 2025 focused on Bitcoin development and community building.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "Asia"
+        ],
+        "image_url": "/explore/image/68e7cd3e9b43dfd75660941d",
+        "type": "event",
+        "image_id": "68e7cd3e9b43dfd75660941d"
+    },
+    {
+        "title": "Bitcoin Medellin",
+        "description": "Conference in Medellin, Colombia, 2026 showcasing Bitcoin adoption in South America.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "SA"
+        ],
+        "image_url": "/explore/image/68e7cd3f9b43dfd756609425",
+        "type": "event",
+        "image_id": "68e7cd3f9b43dfd756609425"
+    },
+    {
+        "title": "Bitcoin Day (Naples)",
+        "description": "Conference in Naples, Florida, USA, 2026 focused on Bitcoin education and community growth.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "NA"
+        ],
+        "image_url": "/explore/image/68e7cd3f9b43dfd756609439",
+        "type": "event",
+        "image_id": "68e7cd3f9b43dfd756609439"
+    },
+    {
+        "title": "Plan B Forum El Salvador",
+        "description": "Conference in San Salvador, El Salvador, 2026 highlighting nation-state Bitcoin adoption.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "NA"
+        ],
+        "image_url": "/explore/image/68e7cd3f9b43dfd75660943c",
+        "type": "event",
+        "image_id": "68e7cd3f9b43dfd75660943c"
+    },
+    {
+        "title": "Adopting Bitcoin Cape Town",
+        "description": "Conference in Cape Town, South Africa, 2026 exploring Bitcoin adoption and innovation in Africa.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "Africa"
+        ],
+        "image_url": "/explore/image/68e7cd409b43dfd756609449",
+        "type": "event",
+        "image_id": "68e7cd409b43dfd756609449"
+    },
+    {
+        "title": "BitBlockBoom",
+        "description": "Conference in Fort Worth, Texas, USA, 2026 centered on Bitcoiners and networking.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "NA"
+        ],
+        "image_url": "/explore/image/68e7cd409b43dfd756609457",
+        "type": "event",
+        "image_id": "68e7cd409b43dfd756609457"
+    },
+    {
+        "title": "Swiss Bitcoin Conference",
+        "description": "Conference in Kreuzlingen, Switzerland, 2026 focused on European Bitcoin adoption and innovation.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "EU"
+        ],
+        "image_url": "/explore/image/68e7cd409b43dfd75660945f",
+        "type": "event",
+        "image_id": "68e7cd409b43dfd75660945f"
+    },
+    {
+        "title": "Bitcoin 2026",
+        "description": "Conference in Las Vegas, USA, 2026 \u2014 one of the largest global Bitcoin events.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "NA"
+        ],
+        "image_url": "/explore/image/68e7cd419b43dfd75660946c",
+        "type": "event",
+        "image_id": "68e7cd419b43dfd75660946c"
+    },
+    {
+        "title": "Bitcoin FilmFest",
+        "description": "Conference and film festival in Warsaw, Poland, 2026 dedicated to Bitcoin films and media.",
+        "category": "Events",
+        "tags": [
+            "Event",
+            "Conference",
+            "EU"
+        ],
+        "image_url": "/explore/image/68e7cd419b43dfd756609470",
+        "type": "event",
+        "image_id": "68e7cd419b43dfd756609470"
+    },
+    {
+        "title": "Big Bitcoin Book",
+        "description": "A large-format book chronicling Bitcoin culture and history.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Literature",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd419b43dfd756609474",
+        "type": "artifact",
+        "image_id": "68e7cd419b43dfd756609474"
+    },
+    {
+        "title": "Bitcoin Electric Guitar",
+        "description": "A unique Bitcoin-themed electric guitar auctioned on Scarce.City.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Instrument",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd429b43dfd756609483",
+        "type": "artifact",
+        "image_id": "68e7cd429b43dfd756609483"
+    },
+    {
+        "title": "THE PEPE'S CHAMP",
+        "description": "Original artwork celebrating Pepe and Bitcoin culture.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd429b43dfd756609489",
+        "type": "artifact",
+        "image_id": "68e7cd429b43dfd756609489"
+    },
+    {
+        "title": "Proof of Paradigm-Defining Work (Past)",
+        "description": "Artwork symbolizing paradigm shifts in Bitcoin and culture.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd429b43dfd756609492",
+        "type": "artifact",
+        "image_id": "68e7cd429b43dfd756609492"
+    },
+    {
+        "title": "Pepe on the Front Page: Crypto Revolution",
+        "description": "Artwork featuring Pepe capturing the Bitcoin revolution on mainstream media.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd439b43dfd7566094c7",
+        "type": "artifact",
+        "image_id": "68e7cd439b43dfd7566094c7"
+    },
+    {
+        "title": "WARNING! (The Moribund Paper of Fools)",
+        "description": "Artwork collage critiquing fiat money, framed in ornate style.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd439b43dfd7566094db",
+        "type": "artifact",
+        "image_id": "68e7cd439b43dfd7566094db"
+    },
+    {
+        "title": "Borderless",
+        "description": "Artwork by Cryptograffiti symbolizing Bitcoin\u2019s borderless nature.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd449b43dfd756609515",
+        "type": "artifact",
+        "image_id": "68e7cd449b43dfd756609515"
+    },
+    {
+        "title": "The United Nodes of Bitcoin",
+        "description": "Artwork by Cryptograffiti representing Bitcoin\u2019s decentralized nodes.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd449b43dfd75660951b",
+        "type": "artifact",
+        "image_id": "68e7cd449b43dfd75660951b"
+    },
+    {
+        "title": "Finney Freedom Prize",
+        "description": "Artwork celebrating Hal Finney and his contributions to Bitcoin.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd459b43dfd756609523",
+        "type": "artifact",
+        "image_id": "68e7cd459b43dfd756609523"
+    },
+    {
+        "title": "Silk Road",
+        "description": "Artwork reflecting the early history of Bitcoin and Silk Road.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd459b43dfd75660952f",
+        "type": "artifact",
+        "image_id": "68e7cd459b43dfd75660952f"
+    },
+    {
+        "title": "Michael Saylor Trading Card",
+        "description": "Collectible trading card featuring Michael Saylor, Bitcoin advocate.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "TC",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd469b43dfd75660954d",
+        "type": "artifact",
+        "image_id": "68e7cd469b43dfd75660954d"
+    },
+    {
+        "title": "Gradually Then Suddenly",
+        "description": "Artwork by Cryptograffiti symbolizing Bitcoin\u2019s adoption curve.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd469b43dfd756609558",
+        "type": "artifact",
+        "image_id": "68e7cd469b43dfd756609558"
+    },
+    {
+        "title": "Inflation POW!",
+        "description": "Trading card artwork representing inflation and Bitcoin\u2019s power.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "TC",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd469b43dfd756609563",
+        "type": "artifact",
+        "image_id": "68e7cd469b43dfd756609563"
+    },
+    {
+        "title": "Genesis Block",
+        "description": "Artwork referencing Bitcoin\u2019s genesis block.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd479b43dfd75660957f",
+        "type": "artifact",
+        "image_id": "68e7cd479b43dfd75660957f"
+    },
+    {
+        "title": "Vespa Libertas",
+        "description": "Artwork symbolizing liberty and Bitcoin with a Vespa theme.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd489b43dfd7566095b0",
+        "type": "artifact",
+        "image_id": "68e7cd489b43dfd7566095b0"
+    },
+    {
+        "title": "False Profits",
+        "description": "Artwork critiquing financial corruption and celebrating Bitcoin\u2019s alternative.",
+        "category": "Artifacts",
+        "tags": [
+            "Artifact",
+            "Artwork",
+            "Culture"
+        ],
+        "image_url": "/explore/image/68e7cd489b43dfd7566095d1",
+        "type": "artifact",
+        "image_id": "68e7cd489b43dfd7566095d1"
+    }
+]
