@@ -1,6 +1,7 @@
 import os
 import json
 import gridfs
+from bson import ObjectId
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -14,7 +15,7 @@ IMAGES_DIR = os.path.abspath(os.path.join(BASE_DIR, "public/database_images"))
 
 # --- MongoDB setup ---
 client = MongoClient(os.getenv("MONGO_URI"))
-db = client["bch"]
+db = client["BitcoinCultureHub"]
 col = db["explore"]
 fs = gridfs.GridFS(db, collection="images")
 
@@ -22,53 +23,76 @@ print("✅ Connected to MongoDB")
 print("📂 Image directory:", IMAGES_DIR)
 print("📄 JSON data file:", DATA_FILE)
 
-# --- Load Explore JSON data ---
-with open(DATA_FILE, "r") as f:
+# --- Load JSON data ---
+with open(DATA_FILE, "r", encoding="utf-8") as f:
     explore_data = json.load(f)
 
-# --- Upload each image referenced in JSON ---
+# --- Upload each image in JSON ---
 for item in explore_data:
     image_path = item.get("image_url")
     if not image_path:
+        print(f"⚠️ No image URL for: {item.get('title', 'Unknown')}")
         continue
 
-    # Remove leading slash if present
-    image_path = image_path.lstrip("/")
-
-    # Find the actual image file (could be nested)
+    image_name = os.path.basename(image_path).lstrip("/")
     found_path = None
+
+    # Look for the file anywhere under IMAGES_DIR
     for root, _, files in os.walk(IMAGES_DIR):
-        for f_name in files:
-            if f_name == os.path.basename(image_path):
-                found_path = os.path.join(root, f_name)
-                break
-        if found_path:
+        if image_name in files:
+            found_path = os.path.join(root, image_name)
             break
 
     if not found_path:
-        print(f"⚠️ Not found for: {item['title']} → {image_path}")
+        print(f"⚠️ Not found: {image_name} for {item.get('title', 'Unknown')}")
         continue
 
-    # Upload to GridFS
+    # --- Upload to GridFS properly (stream, not read) ---
     with open(found_path, "rb") as img_file:
         image_id = fs.put(
-            img_file.read(),
-            filename=os.path.basename(found_path),
+            img_file,
+            filename=image_name,
             contentType="image/png"
         )
 
-    # Update explore document with new image reference
+    # --- Update or insert explore document ---
     col.update_one(
         {"title": item["title"]},
         {
             "$set": {
                 "image_id": str(image_id),
-                "image_url": f"/explore/image/{image_id}"
+                "image_url": f"/explore/image/{image_id}",
             }
         },
-        upsert=True
+        upsert=True,
     )
 
-    print(f"✅ Uploaded: {item['title']} → {os.path.basename(found_path)} ({image_id})")
+    print(f"✅ Uploaded: {item['title']} → {image_name} ({image_id})")
 
-print("\n🎉 All JSON-linked images uploaded successfully and MongoDB updated!")
+print("\n🎉 All images uploaded and database updated!")
+
+# --- Verification Summary ---
+print("\n📊 Checking GridFS consistency...")
+num_files = db.images.files.count_documents({})
+num_chunks = db.images.chunks.count_documents({})
+print(f"   Files in images.files:  {num_files}")
+print(f"   Chunks in images.chunks: {num_chunks}")
+
+# --- Optional sanity check: ensure every file has chunks ---
+missing_chunks = list(db.images.files.aggregate([
+    {"$lookup": {
+        "from": "images.chunks",
+        "localField": "_id",
+        "foreignField": "files_id",
+        "as": "chunks"
+    }},
+    {"$match": {"chunks": {"$size": 0}}},
+    {"$project": {"filename": 1}}
+]))
+
+if missing_chunks:
+    print("\n⚠️ Files missing chunks:")
+    for m in missing_chunks:
+        print("  -", m["filename"])
+else:
+    print("✅ All files have chunks properly stored!")
