@@ -6,7 +6,8 @@ client = MongoClient(settings.MONGO_URI)
 
 # Specify database and collection
 db = client["BitcoinCultureHub"]
-collection = db["explore"]
+collection = db["users"]
+explore = db["explore"]
 waitlist = db["waitlist"]
 fs = gridfs.GridFS(db, collection="images")
 bookmark_collection = db["bookmarks"]
