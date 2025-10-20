@@ -20,8 +20,9 @@ def list_items(category: str | None = Query(default=None)):
     Return all explore items, optionally filtered by category,
     and attach a proper MongoDB GridFS image URL.
     """
-    print('hi')
-    base_url = "https://bch-backend-7vjs.onrender.com/"  # change when deploying
+    base_url = "https://bch-backend-7vjs.onrender.com"  # change when deploying
+   # base_url = os.getenv("BASE_URL", "http://localhost:8000")
+
     q = {}
 
     if category:
