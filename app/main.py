@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, health, users, explore
+from app.routers import auth, health, users, explore,item
 #from .db import Base, engine
 from app.db import db
 
@@ -38,3 +38,4 @@ def debug_db():
         }
     except Exception as e:
         return {"error": str(e)}
+app.include_router(item.router)

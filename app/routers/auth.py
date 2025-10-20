@@ -67,7 +67,13 @@ class DummyLogin(BaseModel):
 
 @router.post("/login", response_model=schemas.Token)
 async def login(user: schemas.UserLogin):
-    user_doc = collection.find_one({"email": user.email})
+    print(user)
+    user_doc =  collection.find_one({"email": user.email})
+    print(user_doc)
+    print("Email:", user.email)
+    print("Password:", user.password)
+    print("DB Hash:", user_doc["hashed_password"])
+    print("Verify:", utils.verify_password(user.password, user_doc["hashed_password"]))
     if not user_doc:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 

@@ -14,7 +14,6 @@ col = db["explore"]
 fs = gridfs.GridFS(db, collection="images")
 
 
-# ✅ List items (optionally by category)
 @router.get("/", response_model=list[dict])
 def list_items(category: str | None = Query(default=None)):
     """
@@ -53,8 +52,32 @@ def get_item(item_id: str):
         raise HTTPException(404, "Item not found")
     return item
 
+@router.put("/accept-by-title/{title}", response_model=dict)
+def accept_item_by_title(title: str):
+    # Update the first document matching the title
+    result = col.update_one(
+        {"title": title},
+        {"$set": {"accepted": True}}
+    )
 
-# ✅ Serve an image from MongoDB GridFS by ObjectId
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Return the updated document
+    item = col.find_one({"title": title}, {"_id": 0})
+    return item
+@router.delete("/delete-by-title/{title}", response_model=dict)
+def delete_item_by_title(title: str):
+    """
+    Delete the first document in the collection matching the given title.
+    """
+    result = col.delete_one({"title": title})
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return {"ok": True, "title": title, "deleted_count": result.deleted_count}
+
 @router.get("/image/{image_id}")
 def serve_image(image_id: str):
     """
@@ -64,10 +87,8 @@ def serve_image(image_id: str):
         oid = ObjectId(image_id)
         file = fs.get(oid)
 
-        # ✅ Force a proper MIME type
         content_type = getattr(file, "content_type", None) or "image/png"
 
-        # ✅ Send headers that tell the browser to render, not download
         headers = {
             "Cache-Control": "public, max-age=3600",
             "Content-Disposition": f'inline; filename="{file.filename}"'
@@ -83,16 +104,16 @@ def serve_image(image_id: str):
 
 
 
-# ✅ Create or update an explore item (optional image upload)
 @router.post("/", response_model=dict)
 async def create_item(
     title: str = Form(...),
     description: str = Form(...),
     category: str = Form(...),
     type: str | None = Form(None),
-    tags: str | None = Form(None),  # comma-separated
+    tags: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
+    print('end point getting hit')
     image_id = None
     if file:
         blob = await file.read()
@@ -107,7 +128,8 @@ async def create_item(
         "tags": [t.strip() for t in (tags or "").split(",") if t.strip()],
         "image_id": str(image_id) if image_id else None,
         "image_url": f"/explore/image/{image_id}" if image_id else None,
+        "accepted":False
     }
-
+    print(doc)
     col.update_one({"id": doc["id"]}, {"$set": doc}, upsert=True)
     return {"ok": True, "id": doc["id"], "image_id": doc["image_id"]}
