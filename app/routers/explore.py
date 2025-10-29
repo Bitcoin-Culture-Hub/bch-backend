@@ -1,25 +1,35 @@
+import io
 import os
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import Response
 from pymongo import MongoClient
 from bson import ObjectId
 import gridfs
-
+import boto3, uuid
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
 router = APIRouter(prefix="/explore", tags=["Explore"])
 
 # Mongo setup
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["BitcoinCultureHub"]
-col = db["explore"]
+col = db["explore2"]
 fs = gridfs.GridFS(db, collection="images")
+BUCKET_NAME = "bitcoin-culture-hub-content-pictures"
 
-
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+    region_name="us-east-2"
+)
 @router.get("/", response_model=list[dict])
 def list_items(category: str | None = Query(default=None)):
     """
     Return all explore items, optionally filtered by category,
     and attach a proper MongoDB GridFS image URL.
     """
+
     base_url = "https://bch-backend-7vjs.onrender.com"  # change when deploying
    # base_url = os.getenv("BASE_URL", "http://localhost:8000")
 
@@ -30,12 +40,16 @@ def list_items(category: str | None = Query(default=None)):
         q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
 
     items = list(col.find(q, {"_id": 0}))
-
+    print(items)
     for item in items:
-        image_id = item.get("image_id")
-        if image_id:
-            item["image_url"] = f"{base_url}/explore/image/{image_id}"
-
+            print(item)
+            url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": BUCKET_NAME, "Key": item["image_url"]},
+            ExpiresIn=3600  
+                )
+            item["image_url"] = url
+    print(items)
     print(f"[Explore] Returning {len(items)} items (filter={category})")
     return items
 
@@ -71,7 +85,16 @@ def delete_item_by_title(title: str):
     """
     Delete the first document in the collection matching the given title.
     """
+    
+    # find the image url from the title. so we can delete the image in the s3 bucket for memory constraints
+    found_item = col.find_one({"title":title})
+    image_title = found_item["image_url"]
     result = col.delete_one({"title": title})
+    # s3 interaction 
+    s3_client.delete_object(
+    Bucket=BUCKET_NAME,
+    Key=image_title,
+    )
 
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -113,11 +136,16 @@ async def create_item(
     tags: str | None = Form(None),
     file: UploadFile | None = File(None),
 ):
-    print('end point getting hit')
-    image_id = None
-    if file:
-        blob = await file.read()
-        image_id = fs.put(blob, filename=file.filename, contentType=file.content_type)
+    image_id = uuid.uuid4()
+
+    content = await file.read()
+
+    s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=file.filename,
+            Body=content,
+            ContentType=file.content_type,
+        )
 
     doc: dict = {
         "id": "-".join(title.lower().split()),
@@ -127,7 +155,7 @@ async def create_item(
         "type": type,
         "tags": [t.strip() for t in (tags or "").split(",") if t.strip()],
         "image_id": str(image_id) if image_id else None,
-        "image_url": f"/explore/image/{image_id}" if image_id else None,
+        "image_url": f"{file.filename}" if image_id else None,
         "accepted":False
     }
     print(doc)
