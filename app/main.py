@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, health, users, explore,item
+from app.routers import auth, health, users, explore,item, cache
 #from .db import Base, engine
 from app.db import db
 
@@ -28,6 +28,7 @@ app.include_router(auth.router)
 app.include_router(health.router)       # GET /        # /auth/*
 app.include_router(users.router)
 app.include_router(explore.router)
+app.include_router(cache.router)
 
 @app.get("/debug/db")
 def debug_db():
