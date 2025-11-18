@@ -7,7 +7,6 @@ from pymongo import MongoClient
 from bson import ObjectId
 import gridfs
 import boto3, uuid
-from motor.motor_asyncio import AsyncIOMotorClient
 from app.redis_client import redis_client
 
 router = APIRouter(prefix="/explore", tags=["Explore"])
@@ -43,47 +42,56 @@ def _get_cache_key_for_presigned_url(image_key: str) -> str:
     return f"{PRESIGNED_URL_CACHE_KEY_PREFIX}:{image_key}"
 
 
-def _get_presigned_url(image_key: str) -> str:
+async def _get_presigned_url(image_key: str) -> str:
     """
-    Get presigned URL from cache or generate new one and cache it.
+    Return a presigned S3 URL for an image_key.
+    Behavior:
+    - Check Redis for a cached URL first (fast).
+    - If missing, generate a new presigned URL via boto3 and cache it.
+    - Cache TTL is slightly shorter than presigned URL expiry to avoid returning expired URLs.
     """
+        
     cache_key = _get_cache_key_for_presigned_url(image_key)
-    
-    # Try to get from cache
-    cached_url = redis_client.get(cache_key)
+
+    # Attempt to fetch cached URL from Redis (async)
+    cached_url = await redis_client.get(cache_key)
     if cached_url:
+        # Cache hit
         return cached_url
-    
-    # Generate new presigned URL
+
+
+    # Cache miss: generate a new presigned URL from S3
     url = s3_client.generate_presigned_url(
         "get_object",
         Params={"Bucket": BUCKET_NAME, "Key": image_key},
         ExpiresIn=CACHE_TTL
     )
-    
-    # Cache it (with slightly shorter TTL than expiry to refresh before expiry)
-    redis_client.setex(cache_key, CACHE_TTL - 300, url)
+
+    # Store the new URL in Redis 
+    # shorter TTL than the presigned to avoid expired URLs
+
+   
+    await redis_client.setex(cache_key, CACHE_TTL - 300, url)
     return url
 
 
-def _invalidate_cache(item_id: str = None, category: str = None):
-    """Invalidate relevant cache entries"""
-    # Invalidate list cache
-    redis_client.delete(LIST_CACHE_KEY)
-    
-    # Invalidate category-specific cache if provided
+
+# ---------- Cache invalidation helper ----------
+async def _invalidate_cache(item_id: str = None, category: str = None):
+    await redis_client.delete(LIST_CACHE_KEY)
     if category:
         category_key = f"{LIST_CACHE_KEY}:category:{category.lower().strip()}"
-        redis_client.delete(category_key)
-    
-    # Invalidate specific item cache
+        await redis_client.delete(category_key)
     if item_id:
         item_cache_key = _get_cache_key_for_item(item_id)
-        redis_client.delete(item_cache_key)
+        await redis_client.delete(item_cache_key)
 
+
+
+# ---------- Routes ----------
 
 @router.get("/", response_model=list[dict])
-def list_items(category: str | None = Query(default=None)):
+async def list_items(category: str | None = Query(default=None)):
     """
     Return all explore items, optionally filtered by category.
     Caches full list and presigned URLs in Redis.
@@ -95,67 +103,65 @@ def list_items(category: str | None = Query(default=None)):
         cache_key = f"{LIST_CACHE_KEY}:category:{cleaned}"
     else:
         cache_key = LIST_CACHE_KEY
+
     
-    # Try to get from cache
+    # Try cache
     cached_items = redis_client.get(cache_key)
     if cached_items:
-        print(f"✅ Cache hit for {cache_key}")
+        print(f"Cache hit for {cache_key}")
         return json.loads(cached_items)
     
-    # Query database
+    # Cache Miss: Query database
     q = {}
     if category:
         cleaned = category.strip().rstrip(",").lower()
         q = {"category": {"$regex": f"^{cleaned}", "$options": "i"}}
     
+    # Note: `col.find` is synchronous (PyMongo) and may block the event loop for long queries.
     items = list(col.find(q, {"_id": 0}))
     
     # Add presigned URLs for each item
     for item in items:
         if item.get("image_url"):
-            item["image_url"] = _get_presigned_url(item["image_url"])
-    
-    # Cache the result
-    redis_client.setex(cache_key, CACHE_TTL, json.dumps(items))
-    
-    print(f"[Explore] Returning {len(items)} items (filter={category})")
+            item["image_url"] = await _get_presigned_url(item["image_url"])
+
+
+    # Cache assembled list
+    await redis_client.setex(cache_key, CACHE_TTL, json.dumps(items))
     return items
+ 
 
 
 @router.get("/{item_id}", response_model=dict)
-def get_item(item_id: str):
+async def get_item(item_id: str):
     """
     Get single item by ID with caching.
     """
+    #Try cash first
     cache_key = _get_cache_key_for_item(item_id)
-    
-    # Try cache first
-    cached_item = redis_client.get(cache_key)
+    cached_item = await redis_client.get(cache_key)
     if cached_item:
-        print(f"✅ Cache hit for item {item_id}")
         return json.loads(cached_item)
-    
-    # Query database
+
+    #Query databse
     item = (
         col.find_one({"id": item_id}, {"_id": 0})
         or col.find_one({"realId": item_id}, {"_id": 0})
     )
-    
     if not item:
         raise HTTPException(404, "Item not found")
-    
-    # Add presigned URL if image exists
+
     if item.get("image_url"):
-        item["image_url"] = _get_presigned_url(item["image_url"])
-    
-    # Cache the item
-    redis_client.setex(cache_key, CACHE_TTL, json.dumps(item))
-    
+        item["image_url"] = await _get_presigned_url(item["image_url"])
+
+
+    #Cache 
+    await redis_client.setex(cache_key, CACHE_TTL, json.dumps(item))
     return item
 
 
 @router.put("/accept-by-title/{title}", response_model=dict)
-def accept_item_by_title(title: str):
+async def accept_item_by_title(title: str):
     """
     Update item acceptance status and invalidate cache.
     """
@@ -166,23 +172,23 @@ def accept_item_by_title(title: str):
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     # Get updated document
     item = col.find_one({"title": title}, {"_id": 0})
     
     # Invalidate caches
     if item and item.get("id"):
-        _invalidate_cache(item_id=item["id"], category=item.get("category"))
-    
+        await _invalidate_cache(item_id=item["id"], category=item.get("category"))
+
     # Add presigned URL if image exists
     if item and item.get("image_url"):
-        item["image_url"] = _get_presigned_url(item["image_url"])
-    
+        item["image_url"] = await _get_presigned_url(item["image_url"])
+
     return item
 
 
 @router.delete("/delete-by-title/{title}", response_model=dict)
-def delete_item_by_title(title: str):
+async def delete_item_by_title(title: str):
     """
     Delete item and invalidate cache.
     """
@@ -198,22 +204,16 @@ def delete_item_by_title(title: str):
     # Delete from database
     result = col.delete_one({"title": title})
     
-    # Delete from S3
     if image_title:
-        s3_client.delete_object(
-            Bucket=BUCKET_NAME,
-            Key=image_title,
-        )
-        # Invalidate presigned URL cache
-        redis_client.delete(_get_cache_key_for_presigned_url(image_title))
-    
-    # Invalidate item and list caches
+        s3_client.delete_object(Bucket=BUCKET_NAME, Key=image_title)
+        await redis_client.delete(_get_cache_key_for_presigned_url(image_title))
+
     if item_id:
-        _invalidate_cache(item_id=item_id, category=category)
-    
+        await _invalidate_cache(item_id=item_id, category=category)
+
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     return {"ok": True, "title": title, "deleted_count": result.deleted_count}
 
 
@@ -280,7 +280,9 @@ async def create_item(
     
     col.update_one({"id": doc["id"]}, {"$set": doc}, upsert=True)
     
+
+    
     # Invalidate list cache since new item was added
-    _invalidate_cache(category=category)
+    await _invalidate_cache(category=category)
     
     return {"ok": True, "id": doc["id"], "image_id": doc["image_id"]}
