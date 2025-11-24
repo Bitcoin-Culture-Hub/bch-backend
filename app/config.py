@@ -16,4 +16,9 @@ class Settings(BaseModel):
     MAILERLITE_API: str = "https://connect.mailerlite.com/api/subscribers"
     MAILERLITE_TOKEN: str = os.getenv("MAILERLITE_TOKEN")
     MONGO_URI: str = os.getenv("MONGO_URI")
+    # ✅ SES Email Config
+    AWS_ACCESS_KEY_ID: str | None = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION: str | None = os.getenv("AWS_REGION")
+    SES_SENDER_EMAIL: str | None = os.getenv("SES_SENDER_EMAIL")
 settings = Settings()
