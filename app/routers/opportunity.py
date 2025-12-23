@@ -1,115 +1,181 @@
-from typing import List
 import uuid
-import os
-from fastapi import APIRouter, Body, HTTPException, Form
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
+from boto3.dynamodb.conditions import Key
 import boto3
-from botocore.exceptions import ClientError
-router = APIRouter(prefix="/jobs", tags=["Jobs"])
+import os
 
+from ..services.auth_service import get_current_user
+from ..models.opportunity_model import OpportunityCreate, OpportunityUpdate,ApplyRequest
+
+# DynamoDB Setup
 dynamodb = boto3.resource(
     "dynamodb",
     region_name=os.environ.get("AWS_REGION", "us-east-2"),
     aws_access_key_id=os.environ.get("BITCOIN_AWS_ACCESS_KEY"),
-    aws_secret_access_key=os.environ.get("BITCOIN_AWS_SECRET_ACCESS_KEY"),
+    aws_secret_access_key=os.environ.get("BITCOIN_AWS_SECRET_ACCESS_KEY")
 )
 
-TABLE_NAME = os.environ.get("JOBS_TABLE", "opportunities")
-table = dynamodb.Table("opportunities")
+table = dynamodb.Table("MainAppTable")
+
+router = APIRouter(
+    prefix="/org/{org_id}/opportunities",
+    tags=["opportunities"]
+)
+
+# -------------------------
+#   Helper Functions
+# -------------------------
+
+def ensure_member(org_id: str, user_id: str):
+    """Verify the user is part of the organization."""
+    resp = table.get_item(
+        Key={
+            "PK": f"ORG#{org_id}",
+            "SK": f"MEMBER#{user_id}"
+        }
+    )
+
+    if "Item" not in resp:
+        raise HTTPException(403, "You are not a member of this organization.")
 
 
-@router.post("/", response_model=dict)
-def create_job(
-    title: str = Form(...),
-    description: str = Form(...),
-    type: str = Form(...),
-    postedBy: str = Form(...),
-    remote: bool = Form(...),
-    postedDate: str = Form(...)
-):
-    job_id = str(uuid.uuid4())
+# -------------------------
+#   Opportunity Endpoints
+# -------------------------
+
+@router.post("/")
+def create_opportunity(org_id: str, data: OpportunityCreate, user=Depends(get_current_user)):
+    print(user)
+    user_id = user["user_id"]
+    ensure_member(org_id, user_id)
+    
+    opp_id = str(uuid.uuid4())
+    now = datetime.utcnow().isoformat()
 
     item = {
-        "jobID": job_id,
-        "title": title,
-        "description": description,
-        "type": type,
-        "postedBy": postedBy,
-        "remote": remote,
-        "postedDate": postedDate,
-        "applicants": [] 
+        "PK": f"ORG#{org_id}",
+        "SK": f"OPP#{opp_id}",
+
+        "id": opp_id,
+        "title": data.title,
+        "type": data.type,
+        "description": data.description,
+        "location":data.location,
+        "createdAt": now,
+        "createdBy": user_id,
+        "timeCommitment":data.timeCommitment,
+        "categories":data.categories,
+        "GSI1PK":"OPPORTUNITY"
     }
 
-    try:
-        table.put_item(Item=item)
-        return {"ok": True, "jobId": job_id}
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    table.put_item(Item=item)
+    return item
+
+@router.get("/")
+def list_opportunities(org_id: str):
+    resp = table.query(
+        IndexName="OrganizationSearch",
+        KeyConditionExpression= Key("PK").eq(f"ORG#{org_id}") & Key("GSI1PK").eq(f"OPPORTUNITY")
+    )
+    print(resp)
+    return resp["Items"]
+
+@router.get("/{opp_id}")
+def get_opportunity(org_id: str, opp_id: str):
+    resp = table.get_item(
+        Key={
+            "PK": f"ORG#{org_id}",
+            "SK": f"OPP#{opp_id}"
+        }
+    )
+
+    if "Item" not in resp:
+        raise HTTPException(404, "Opportunity not found")
+
+    return resp["Item"]
 
 
-@router.get("/", response_model=list[dict])
-def list_jobs():
-    try:
-        response = table.scan()
-        return response.get("Items", [])
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 
-@router.get("/{job_id}", response_model=dict)
-def get_job(job_id: str):
-    try:
-        response = table.get_item(Key={"jobID": job_id})
-        if "Item" not in response:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return response["Item"]
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.patch("/{opp_id}")
+def update_opportunity(org_id: str, opp_id: str, data: OpportunityUpdate, user=Depends(get_current_user)):
+    ensure_member(org_id, user["user_id"])
+
+    key = {"PK": f"ORG#{org_id}", "SK": f"OPP#{opp_id}"}
+    resp = table.get_item(Key=key)
+
+    if "Item" not in resp:
+        raise HTTPException(404, "Opportunity not found")
+
+    opp = resp["Item"]
+
+    for field, value in data.dict(exclude_unset=True).items():
+        opp[field] = value
+
+    table.put_item(Item=opp)
+    return opp
 
 
+@router.delete("/{opp_id}")
+def delete_opportunity(org_id: str, opp_id: str, user=Depends(get_current_user)):
+    ensure_member(org_id, user["user_id"])
+
+    table.delete_item(
+        Key={
+            "PK": f"ORG#{org_id}",
+            "SK": f"OPP#{opp_id}"
+        }
+    )
+
+    return {"message": "Opportunity deleted"}
 
 
-@router.patch("/{job_id}/apply", response_model=dict)
-def add_applicants(job_id: str, applicants: List[str] = Body(...)):
+# -------------------------
+#   Applicant Endpoints
+# -------------------------
 
-    try:
-        response = table.update_item(
-            Key={"jobID": job_id},
-            UpdateExpression="SET applicants = list_append(if_not_exists(applicants, :empty), :new)",
-            ExpressionAttributeValues={
-                ":new": applicants,
-                ":empty": [],
-            },
-            ReturnValues="ALL_NEW"
-        )
-        return response["Attributes"]
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/{opp_id}/apply")
+def apply(data:ApplyRequest,user=Depends(get_current_user)):
+    user_id = user["user_id"]
+    apply_id = str(uuid.uuid4())
+    # Check if already applied
+    resp = table.get_item(
+        Key={
+            "PK": f"ORG#{data.org_id}",
+            "SK": f"OPP#{data.opp_id}#APPLICANT#{user_id}"
+        }
+    )
+
+    if "Item" in resp:
+        raise HTTPException(400, "Already applied")
+
+    item = {
+        "PK": f"ORG#{data.org_id}",
+        "SK": f"OPP#{data.opp_id}#APPLICANT#{user_id}",
+        "id":apply_id,
+        "userId": user_id,
+        "opportunityId": data.opp_id,
+        "appliedAt": datetime.utcnow().isoformat(),
+        "status": "new",
+        "email":data.email ,
+        "username":data.username,
+        "location":data.location,
+        "avatar":data.avatar
+        }
+
+    table.put_item(Item=item)
+    return {"message": "Application submitted", **item}
 
 
-@router.patch("/{job_id}/remove", response_model=dict)
-def remove_applicant(job_id: str, applicant: str = Form(...)):
-    try:
-        # Get job first
-        job = table.get_item(Key={"jobID": job_id}).get("Item")
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
+@router.get("/{opp_id}/applicants")
+def list_applicants(org_id: str, opp_id: str, user=Depends(get_current_user)):
+    ensure_member(org_id, user["user_id"])
 
-        applicants = job.get("applicants", [])
-        if applicant not in applicants:
-            raise HTTPException(status_code=404, detail="Applicant not found")
+    resp = table.query(
+        KeyConditionExpression=Key("PK").eq(f"ORG#{org_id}") &
+                               Key("SK").begins_with(f"OPP#{opp_id}#APPLICANT#")
+    )
 
-        # Remove in Python then overwrite
-        applicants.remove(applicant)
-
-        response = table.update_item(
-            Key={"jobID": job_id},
-            UpdateExpression="SET applicants = :updated",
-            ExpressionAttributeValues={":updated": applicants},
-            ReturnValues="ALL_NEW"
-        )
-
-        return response["Attributes"]
-
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return resp["Items"]
