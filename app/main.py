@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # routers
 app.include_router(health.router)       # GET /        # /auth/*
 app.include_router(users.router)
