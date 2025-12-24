@@ -19,6 +19,12 @@ class OpportunityCreate(BaseModel):
     location: str | None = None
     timeCommitment: str | None = None
 
+class OpportunityUpdate(BaseModel):
+    title: str | None = None
+    type: str | None = None
+    description: str | None = None
+    location: str | None = None
+    time_commitment: str | None = None
 
 class ApplyRequest(BaseModel):
     email: str
@@ -104,9 +110,47 @@ async def list_opportunities(
         )
         for opportunity, org_name in result.all()
     ]
+@router.patch(
+    "/{opp_id}",
+    response_model=OpportunityRead
+)
+async def patch_opportunity(
+    org_id: str,
+    opp_id: str,
+    data: OpportunityUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    # 1. Load ORM instance (NOT a Row)
+    opportunity = await session.get(Opportunity, opp_id)
 
+    if not opportunity or opportunity.org_id != org_id:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
 
-    
+    # 2. Apply partial updates
+    update_data = data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(opportunity, field, value)
+
+    await session.commit()
+    await session.refresh(opportunity)
+
+    # 3. Fetch enriched response (read-only is fine here)
+    stmt = (
+        select(
+            Opportunity,
+            Organization.name.label("org_name")
+        )
+        .join(Organization, Organization.id == Opportunity.org_id)
+        .where(Opportunity.id == opp_id)
+    )
+
+    result = await session.exec(stmt)
+    opportunity, org_name = result.one()
+
+    return OpportunityRead(
+        **opportunity.dict(),
+        org_name=org_name
+    )
 
 @router.get("/{opp_id}")
 async def get_opportunity(
