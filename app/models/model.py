@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import UniqueConstraint
 import uuid
+from datetime import date
 
 
 class User(SQLModel, table=True):
@@ -92,3 +93,31 @@ class OpportunityRead(SQLModel):
     org_name:Optional[str]
     class Config:
         orm_mode = True
+        
+class OrganizationRead(SQLModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str
+    type: Optional[str]
+    location: Optional[str]
+    email: Optional[str]
+    description: Optional[str]
+    status: str = "pending"
+    owner_id: str = Field(foreign_key="user.id")
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    
+class BitcoinEvent(SQLModel, table=True):
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        primary_key=True
+    )
+
+    name: str
+    city: Optional[str] = None
+    country: Optional[str] = None
+    continent: Optional[str] = None
+
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+    twitter_url: Optional[str] = None
+    website_url: Optional[str] = None

@@ -4,7 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 
 from app.db import get_session
-from ..models.model import Organization, OrganizationMember
+from ..models.model import Organization, OrganizationMember, OrganizationRead
 from app.services.auth_service import get_current_user
 from pydantic import BaseModel
 
@@ -17,6 +17,15 @@ class OrgCreate(BaseModel):
     location: str | None = None
     email: str | None = None
     description: str | None = None
+    
+    
+class OrgUpdate(BaseModel):
+    name: str
+    type: str | None = None
+    location: str | None = None
+    email: str | None = None
+    description: str | None = None
+
 
 
 @router.post("/")
@@ -70,6 +79,26 @@ async def get_org(
     if not org:
         raise HTTPException(404, "Organization not found")
     return org
+
+
+@router.patch("/{org_id}", response_model=OrganizationRead)
+async def edit_organizations(
+    org_id: str,
+    data: OrgUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    org = await session.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    update_data = data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(org, field, value)
+
+    await session.commit()
+    await session.refresh(org)
+
+    return OrganizationRead.from_orm(org)
 
 
 @router.get("/{org_id}/members")
