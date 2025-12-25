@@ -105,13 +105,13 @@ class OrganizationRead(SQLModel):
     owner_id: str = Field(foreign_key="user.id")
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
     
-class BitcoinEvent(SQLModel, table=True):
+class Bitcoin_Events(SQLModel, table=True):
     id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
 
-    name: str
+    event_name: str
     city: Optional[str] = None
     country: Optional[str] = None
     continent: Optional[str] = None
