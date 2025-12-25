@@ -120,13 +120,11 @@ async def patch_opportunity(
     data: OpportunityUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    # 1. Load ORM instance (NOT a Row)
     opportunity = await session.get(Opportunity, opp_id)
 
     if not opportunity or opportunity.org_id != org_id:
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
-    # 2. Apply partial updates
     update_data = data.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(opportunity, field, value)
