@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
@@ -18,6 +18,7 @@ class OpportunityCreate(BaseModel):
     description: str | None = None
     location: str | None = None
     timeCommitment: str | None = None
+    categories: List[str] | None = None
 
 class OpportunityUpdate(BaseModel):
     title: str | None = None
@@ -25,7 +26,8 @@ class OpportunityUpdate(BaseModel):
     description: str | None = None
     location: str | None = None
     time_commitment: str | None = None
-
+    categories: List[str] | None = None
+    
 class ApplyRequest(BaseModel):
     email: str
     username: str
@@ -79,15 +81,17 @@ async def create_opportunity(
         created_by=user["user_id"],
     )
 
+        
     session.add(opp)
+    categories = data.categories
+    for category in categories:
+        session.add(OpportunityCategory(opp.id,category))
+        
     await session.commit()
     return opp
 
 
-@router.get(
-    "/",
-    response_model=list[OpportunityRead]
-)
+@router.get("/", response_model=list[OpportunityRead])
 async def list_opportunities(
     org_id: str,
     session: AsyncSession = Depends(get_session),
@@ -101,15 +105,27 @@ async def list_opportunities(
         .where(Opportunity.org_id == org_id)
     )
 
-    result = await session.exec(stmt)
+    results = await session.exec(stmt)
+    opportunities_with_org = results.all()
 
-    return [
-        OpportunityRead(
-            **opportunity.dict(),
-            org_name=org_name
+    final_list = []
+    for opportunity, org_name in opportunities_with_org:
+        cat_stmt = select(OpportunityCategory.category).where(
+            OpportunityCategory.opportunity_id == opportunity.id
         )
-        for opportunity, org_name in result.all()
-    ]
+        categories_result = await session.exec(cat_stmt)
+        categories = [c[0] for c in categories_result.all()]
+        final_list.append(
+            OpportunityRead(
+                **opportunity.dict(),
+                org_name=org_name,
+                categories=categories
+            )
+        )
+    return final_list
+
+
+
 @router.patch(
     "/{opp_id}",
     response_model=OpportunityRead
@@ -126,13 +142,27 @@ async def patch_opportunity(
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
     update_data = data.dict(exclude_unset=True)
+    
     for field, value in update_data.items():
-        setattr(opportunity, field, value)
+        if field != "categories":
+            setattr(opportunity, field, value)
 
+    if "categories" in update_data:
+        new_categories = update_data["categories"]
+
+        await session.execute(
+            delete(OpportunityCategory).where(
+                OpportunityCategory.opportunity_id == opp_id
+            )
+        )
+
+        session.add_all(
+            OpportunityCategory(opportunity_id=opp_id, category=cat)
+            for cat in new_categories
+        )
     await session.commit()
     await session.refresh(opportunity)
 
-    # 3. Fetch enriched response (read-only is fine here)
     stmt = (
         select(
             Opportunity,
@@ -145,20 +175,47 @@ async def patch_opportunity(
     result = await session.exec(stmt)
     opportunity, org_name = result.one()
 
+    cat_stmt = select(OpportunityCategory.category).where(
+    OpportunityCategory.opportunity_id == opp_id
+)
+    categories_result = await session.exec(cat_stmt)
+    categories = [c[0] for c in categories_result.all()]  
+
     return OpportunityRead(
         **opportunity.dict(),
-        org_name=org_name
+        org_name=org_name,
+        categories=categories
     )
 
-@router.get("/{opp_id}")
+@router.get("/{opp_id}", response_model=OpportunityRead)
 async def get_opportunity(
     opp_id: str,
     session: AsyncSession = Depends(get_session),
 ):
-    opp = await session.get(Opportunity, opp_id)
-    if not opp:
-        raise HTTPException(404, "Opportunity not found")
-    return opp
+    stmt = (
+        select(Opportunity, Organization.name.label("org_name"))
+        .join(Organization, Organization.id == Opportunity.org_id)
+        .where(Opportunity.id == opp_id)
+    )
+    result = await session.exec(stmt)
+    row = result.one_or_none()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    opportunity, org_name = row
+
+    cat_stmt = select(OpportunityCategory.category).where(
+        OpportunityCategory.opportunity_id == opportunity.id
+    )
+    categories_result = await session.exec(cat_stmt)
+    categories = categories_result.all()
+
+    return OpportunityRead(
+        **opportunity.dict(),
+        org_name=org_name,
+        categories=categories
+    )
 
 
 @router.post("/{opp_id}/apply")

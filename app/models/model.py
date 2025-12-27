@@ -1,6 +1,7 @@
+from unicodedata import category
 from sqlmodel import Relationship, SQLModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import UniqueConstraint
 import uuid
 from datetime import date
@@ -45,7 +46,15 @@ class OrganizationMember(SQLModel, table=True):
     role: str
     joined_at: datetime = Field(default_factory=datetime.utcnow)
 
+class OpportunityCategory(SQLModel, table=True):
+    __tablename__ = "opportunitycategory"
 
+    opportunity_id: str = Field(
+        foreign_key="opportunity.id", primary_key=True
+    )
+    category: str = Field(primary_key=True)
+    
+    
 class Opportunity(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     org_id: str = Field(foreign_key="organization.id", index=True)
@@ -56,14 +65,17 @@ class Opportunity(SQLModel, table=True):
     time_commitment: Optional[str]
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(foreign_key="user.id")
-
+    
+    categories: List[OpportunityCategory] = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+    
+    
     class Config:
         orm_mode = True
 
 
-class OpportunityCategory(SQLModel, table=True):
-    opportunity_id: str = Field(foreign_key="opportunity.id", primary_key=True)
-    category: str = Field(primary_key=True)
+
 
 
 class Application(SQLModel, table=True):
@@ -91,6 +103,7 @@ class OpportunityRead(SQLModel):
     created_at: datetime
     created_by: str
     org_name:Optional[str]
+    categories:Optional[List[str]] 
     class Config:
         orm_mode = True
         

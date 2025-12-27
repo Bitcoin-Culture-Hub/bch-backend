@@ -80,6 +80,21 @@ async def get_org(
         raise HTTPException(404, "Organization not found")
     return org
 
+@router.get("/{org_id}/public")
+async def get_org(
+    org_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    org = await session.get(Organization, org_id)
+    if not org:
+        raise HTTPException(404, "Organization not found")
+    
+    # filter 
+    # get all corresponding opportunities for the org
+    
+    return org
+
+
 
 @router.patch("/{org_id}", response_model=OrganizationRead)
 async def edit_organizations(
