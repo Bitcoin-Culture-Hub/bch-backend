@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Optional
 import uuid
 from datetime import datetime
@@ -6,7 +7,7 @@ from boto3.dynamodb.conditions import Key,Attr
 from pydantic import BaseModel
 
 from ..services.auth_service import get_current_user
-from ..models.model import OpportunityRead, Organization,Opportunity
+from ..models.model import OpportunityCategory, OpportunityRead, Organization,Opportunity
 import boto3
 import os
 from sqlmodel import SQLModel, select
@@ -47,22 +48,33 @@ async def my_orgs(
 
 @router.get("/opportunity", response_model=List[OpportunityRead])
 async def all_opportunities(session: AsyncSession = Depends(get_session)):
-    # Join Opportunity with Organization to get org_name
     stmt = (
         select(Opportunity, Organization.name.label("org_name"))
         .join(Organization, Organization.id == Opportunity.org_id)
     )
+    results = await session.exec(stmt)
+    opportunities_with_org = results.all()
 
-    result = await session.exec(stmt)
+    stmt_cats = select(OpportunityCategory)
+    cats_result = await session.exec(stmt_cats)
+    all_cats = cats_result.all()
 
-    # Return as OpportunityRead objects
-    return [
-        OpportunityRead(
-            **opp.dict(),
-            org_name=org_name
+    cats_map = defaultdict(list)
+    for oc in all_cats:
+        cats_map[oc.opportunity_id].append(oc.category)
+
+    final_list = []
+    for opp, org_name in opportunities_with_org:
+        categories = cats_map.get(opp.id, [])
+        final_list.append(
+            OpportunityRead(
+                **opp.dict(),
+                org_name=org_name,
+                categories=categories
+            )
         )
-        for opp, org_name in result.all()
-    ]
+
+    return final_list
 
 
 @router.get("/myapplications", response_model=List[ApplicationRead])
@@ -85,7 +97,6 @@ async def user_applicants(
 
     result = await session.exec(stmt)
 
-    # Map tuples to ApplicationRead
     return [
         ApplicationRead(
             **application.dict(),

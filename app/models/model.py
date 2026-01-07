@@ -1,6 +1,7 @@
+from unicodedata import category
 from sqlmodel import Relationship, SQLModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import UniqueConstraint
 import uuid
 from datetime import date
@@ -37,6 +38,7 @@ class Organization(SQLModel, table=True):
     status: str = "pending"
     owner_id: str = Field(foreign_key="user.id")
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = None
 
 
 class OrganizationMember(SQLModel, table=True):
@@ -44,6 +46,36 @@ class OrganizationMember(SQLModel, table=True):
     user_id: str = Field(foreign_key="user.id", primary_key=True)
     role: str
     joined_at: datetime = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = None
+
+class OpportunityCategory(SQLModel, table=True):
+    __tablename__ = "opportunitycategory"
+
+    opportunity_id: str = Field(foreign_key="opportunity.id", primary_key=True)
+    category: str = Field(primary_key=True)
+    deleted_at: Optional[datetime] = None
+
+    opportunity: Optional["Opportunity"] = Relationship(back_populates="categories")
+
+
+class Tools(SQLModel, table=True):
+    __tablename__ = "tools"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    opportunity_id: str = Field(foreign_key="opportunity.id")
+    tool_name: str
+
+    opportunity: Optional["Opportunity"] = Relationship(back_populates="tools")
+
+
+class OutputType(SQLModel, table=True):
+    __tablename__ = "outputtype"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    opportunity_id: str = Field(foreign_key="opportunity.id")
+    output_type: str
+
+    opportunity: Optional["Opportunity"] = Relationship(back_populates="output_types")
 
 
 class Opportunity(SQLModel, table=True):
@@ -56,14 +88,23 @@ class Opportunity(SQLModel, table=True):
     time_commitment: Optional[str]
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(foreign_key="user.id")
+    summary: Optional[str]
+    skill_level: Optional[str]
+    estimated_hours: Optional[str]
+    due_date: Optional[datetime]
+
+    # Relationships
+    categories: List["OpportunityCategory"] = Relationship(back_populates="opportunity")
+    tools: List["Tools"] = Relationship(back_populates="opportunity")
+    output_types: List["OutputType"] = Relationship(back_populates="opportunity")
+
+    deleted_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
 
 
-class OpportunityCategory(SQLModel, table=True):
-    opportunity_id: str = Field(foreign_key="opportunity.id", primary_key=True)
-    category: str = Field(primary_key=True)
+
 
 
 class Application(SQLModel, table=True):
@@ -78,6 +119,9 @@ class Application(SQLModel, table=True):
     location: Optional[str]
     avatar: Optional[str]
     status:Optional[str]
+    deleted_at: Optional[datetime] = None
+
+
 
 
 class OpportunityRead(SQLModel):
@@ -91,6 +135,7 @@ class OpportunityRead(SQLModel):
     created_at: datetime
     created_by: str
     org_name:Optional[str]
+    categories:Optional[List[str]] 
     class Config:
         orm_mode = True
         
@@ -121,3 +166,7 @@ class Bitcoin_Events(SQLModel, table=True):
 
     twitter_url: Optional[str] = None
     website_url: Optional[str] = None
+    
+OpportunityCategory.opportunity = Relationship(back_populates="categories")
+Tools.opportunity = Relationship(back_populates="tools")
+OutputType.opportunity = Relationship(back_populates="output_types")
