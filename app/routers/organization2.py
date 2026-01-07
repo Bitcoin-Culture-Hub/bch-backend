@@ -1,10 +1,12 @@
+from cProfile import Profile
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select
+from sqlmodel import Session, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 
 from app.db import get_session
-from ..models.model import Organization, OrganizationMember, OrganizationRead
+from ..models.model import OpportunityCategory, Organization, OrganizationMember, OrganizationRead,Opportunity,Application
 from app.services.auth_service import get_current_user
 from pydantic import BaseModel
 
@@ -26,7 +28,15 @@ class OrgUpdate(BaseModel):
     email: str | None = None
     description: str | None = None
 
-
+async def ensure_member(org_id: str, user_id: str, session: AsyncSession):
+    result = await session.exec(
+        select(OrganizationMember).where(
+            OrganizationMember.org_id == org_id,
+            OrganizationMember.user_id == user_id,
+        )
+    )
+    if not result.first():
+        raise HTTPException(403, "Not a member of this organization")
 
 @router.post("/")
 async def create_org(
@@ -119,11 +129,73 @@ async def edit_organizations(
 @router.get("/{org_id}/members")
 async def list_members(
     org_id: str,
+    user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    await ensure_member(org_id, user["user_id"], session)
+
     result = await session.exec(
-        select(OrganizationMember).where(
-            OrganizationMember.org_id == org_id
+        select(OrganizationMember, Profile)
+        .join(Profile, Profile.user_id == OrganizationMember.user_id)
+        .where(
+            OrganizationMember.org_id == org_id,
+            OrganizationMember.deleted_at.is_(None)
         )
     )
-    return result.all()
+
+    rows = result.all()
+
+    return [
+        {
+            "user_id": member.user_id,
+            "role": member.role,
+            "joined_at": member.joined_at,
+            "profile": {
+                "username": profile.username,
+                "bio": profile.bio,
+                "location": profile.location,
+                "profile_picture": profile.profile_picture,
+            }
+        }
+        for member, profile in rows
+    ]
+
+@router.delete("/{org_id}")
+async def delete_organization(org_id: str, session: AsyncSession = Depends(get_session)):
+    org = session.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    now = datetime.utcnow()
+    
+    org.deleted_at = now
+    session.add(org)
+
+    org_members_stmt = select(OrganizationMember).where(OrganizationMember.org_id == org_id)
+    org_members: List[OrganizationMember] = session.exec(org_members_stmt).all()
+    for member in org_members:
+        member.deleted_at = now
+        session.add(member)
+    
+    opp_stmt = select(Opportunity).where(Opportunity.org_id == org_id)
+    opportunities: List[Opportunity] = session.exec(opp_stmt).all()
+    
+    for opp in opportunities:
+        app_stmt = select(Application).where(Application.opportunity_id == opp.id)
+        applications: List[Application] = session.exec(app_stmt).all()
+        for app in applications:
+            app.deleted_at = now
+            session.add(app)
+        
+        cat_stmt = select(OpportunityCategory).where(OpportunityCategory.opportunity_id == opp.id)
+        categories: List[OpportunityCategory] = session.exec(cat_stmt).all()
+        for cat in categories:
+            cat.deleted_at = now
+            session.add(cat)
+        
+        opp.deleted_at = now
+        session.add(opp)
+    
+    session.commit()
+    
+    return {"message": f"Organization {org.name} and all related data have been soft-deleted."}

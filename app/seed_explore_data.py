@@ -26,7 +26,6 @@ with open(DATA_FILE, "r") as f:
 
 # Optional: clear old data
 col.delete_many({})
-print("🧹 Cleared existing explore collection")
 
 # Insert new data
 for item in explore_data:

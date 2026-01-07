@@ -5,21 +5,30 @@ from sqlalchemy import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
-from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead
+from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType
 from ..db import get_session
 from ..services.auth_service import get_current_user
 router = APIRouter(
     prefix="/org/{org_id}/opportunities",
     tags=["opportunities"]
 )
+class Location(BaseModel):
+    type: str
+    text: str | None = None
+    
 class OpportunityCreate(BaseModel):
     title: str
     type: str | None = None
     description: str | None = None
-    location: str | None = None
-    timeCommitment: str | None = None
+    location: Location | None = None
+    time_commitment: str | None = None
     categories: List[str] | None = None
-
+    skill_level:str|None = None
+    estimated_hours:int|None = None
+    due_date : str | None = None
+    tools:List[str] | None = None
+    output_type:List[str]| None = None
+    
 class OpportunityUpdate(BaseModel):
     title: str | None = None
     type: str | None = None
@@ -70,25 +79,87 @@ async def create_opportunity(
     await ensure_member(org_id, user["user_id"], session)
 
     opp = Opportunity(
-        id=str(uuid.uuid4()),
         org_id=org_id,
         title=data.title,
         type=data.type,
         description=data.description,
-        location=data.location,
-        time_commitment=data.timeCommitment,
+        location=data.location.text if data.location else "Remote",
+        time_commitment=data.time_commitment,
+        skill_level=data.skill_level,
+        estimated_hours=data.estimated_hours,
+        due_date=data.due_date,
         created_at=datetime.utcnow(),
         created_by=user["user_id"],
     )
 
-        
     session.add(opp)
-    categories = data.categories
-    for category in categories:
-        session.add(OpportunityCategory(opp.id,category))
-        
+    await session.flush()  # This ensures opp.id is available
+
+    for category in data.categories or []:
+        session.add(
+            OpportunityCategory(
+                opportunity_id=opp.id,
+                category=category
+            )
+        )
+
+    for tool in data.tools or []:
+        session.add(
+            Tools(
+                opportunity_id=opp.id,
+                tool_name=tool
+            )
+        )
+
+    for output in data.output_type or []:
+        session.add(
+            OutputType(
+                opportunity_id=opp.id,
+                output_type=output
+            )
+        )
     await session.commit()
+    await session.refresh(opp) 
     return opp
+
+
+@router.delete("/{opportunity_id}")
+async def delete_opportunity(
+    org_id: str,
+    opportunity_id: str,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await ensure_member(org_id, user["user_id"], session)
+
+    opp = await session.get(Opportunity, opportunity_id)
+
+    if not opp or opp.org_id != org_id:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    # delete children first (no cascades)
+    await session.exec(
+        delete(OpportunityCategory).where(
+            OpportunityCategory.opportunity_id == opportunity_id
+        )
+    )
+    await session.exec(
+        delete(Tools).where(
+            Tools.opportunity_id == opportunity_id
+        )
+    )
+    await session.exec(
+        delete(OutputType).where(
+            OutputType.opportunity_id == opportunity_id
+        )
+    )
+
+    await session.delete(opp)
+    await session.commit()
+
+    return {"detail": "Opportunity deleted successfully"}
+
+
 
 
 @router.get("/", response_model=list[OpportunityRead])

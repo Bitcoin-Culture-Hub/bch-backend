@@ -42,10 +42,9 @@ bookmark_collection = db["bookmarks"]
 #         db.close()
 
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.environ["DEPLOYED_DATABASE_URL"]
 
 engine = create_async_engine(DATABASE_URL, echo=True)
-
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,   
