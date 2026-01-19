@@ -13,6 +13,18 @@ class User(SQLModel, table=True):
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class OrganizationPrompts(SQLModel, table=True):
+    __tablename__ = "organizationprompts"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    organization_id: str = Field(foreign_key="organization.id", index=True)
+    prompt_key: str = Field(index=True)
+    custom_text: str
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "prompt_key"),
+    )
+
+
 
 class Profile(SQLModel, table=True):
     user_id: str = Field(foreign_key="user.id", primary_key=True)
