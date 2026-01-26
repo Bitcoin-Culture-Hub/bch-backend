@@ -312,9 +312,7 @@ async def apply(
         location=data.location,
         avatar=data.avatar,
         applied_at=datetime.utcnow(),
-        status=data.status,
-        resume_link=data.resume_link
-        
+        status=data.status        
     )
 
     session.add(application)
