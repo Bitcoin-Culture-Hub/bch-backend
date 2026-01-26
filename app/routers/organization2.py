@@ -53,16 +53,24 @@ async def ensure_member(org_id: str, user_id: str, session: AsyncSession):
     if not result.first():
         raise HTTPException(403, "Not a member of this organization")
     
-async def ensure_owner(org_id: str, user_id: str, session: AsyncSession):
+async def ensure_org_owner(
+    org_id: str,
+    user_id: str,
+    session: AsyncSession,
+):
     result = await session.exec(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org_id,
             OrganizationMember.user_id == user_id,
-            OrganizationMember.role == 'owner'
+            OrganizationMember.role == "OWNER",
         )
     )
+
     if not result.first():
-        raise HTTPException(403, "Not a member of this organization")
+        raise HTTPException(
+            status_code=403,
+            detail="Only organization owners can perform this action",
+        )
     
 @router.post("/")
 async def create_org(
@@ -356,12 +364,22 @@ async def upsert_org_prompts(
     await session.commit()
     return {"message": "Prompt(s) saved"}
 
-@router.get("/{org_id}/permissions")
-async def check_permissions(
+
+
+@router.get("/{org_id}/is-owner")
+async def is_org_owner(
     org_id: str,
-    user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
-    await ensure_owner(org_id, user["user_id"], session)
-    
-    return {"is_owner": True}
+    result = await session.exec(
+        select(OrganizationMember).where(
+            OrganizationMember.org_id == org_id,
+            OrganizationMember.user_id == user["user_id"],
+            OrganizationMember.role == "owner",
+        )
+    )
+
+    return {
+        "is_owner": result.first() is not None
+    }

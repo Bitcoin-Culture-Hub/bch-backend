@@ -5,9 +5,13 @@ from sqlalchemy import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
-from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType
+from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType,Profile
 from ..db import get_session
 from ..services.auth_service import get_current_user
+
+BUCKET_NAME = 'bitcoin-culture-hub-resumes'
+
+
 router = APIRouter(
     prefix="/org/{org_id}/opportunities",
     tags=["opportunities"]
@@ -43,6 +47,8 @@ class ApplyRequest(BaseModel):
     location: str | None = None
     avatar: str | None = None
     status:str
+    resume_link: Optional[str]
+
 class ApplicationRead(BaseModel):
     id: str
     opportunity_id: str
@@ -54,6 +60,7 @@ class ApplicationRead(BaseModel):
     location: Optional[str]
     avatar: Optional[str]
     status: Optional[str]
+    resume_link: Optional[str]
 
     class Config:
         orm_mode = True
@@ -305,7 +312,9 @@ async def apply(
         location=data.location,
         avatar=data.avatar,
         applied_at=datetime.utcnow(),
-        status=data.status
+        status=data.status,
+        resume_link=data.resume_link
+        
     )
 
     session.add(application)
@@ -317,7 +326,7 @@ async def apply(
     return {"message": "Application submitted"}
 
 
-@router.get("/{opp_id}/applicants",response_model=List[ApplicationRead])
+@router.get("/{opp_id}/applicants", response_model=List[ApplicationRead])
 async def list_applicants(
     org_id: str,
     opp_id: str,
@@ -327,7 +336,20 @@ async def list_applicants(
     await ensure_member(org_id, user["user_id"], session)
 
     result = await session.exec(
-        select(Application).where(Application.opportunity_id == opp_id)
+        select(Application, Profile.resume_link)
+        .join(Profile, Profile.user_id == Application.user_id)
+        .where(Application.opportunity_id == opp_id)
     )
-    apps = result.scalars().all()
+
+    apps = []
+    for app, resume_link in result.all():
+        apps.append(
+            ApplicationRead(
+                **app.model_dump(),
+                resume_link=resume_link
+            )
+        )
+
     return apps
+
+

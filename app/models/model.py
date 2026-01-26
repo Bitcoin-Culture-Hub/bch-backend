@@ -5,6 +5,9 @@ from typing import List, Optional
 from sqlalchemy import UniqueConstraint
 import uuid
 from datetime import date
+import boto3
+
+
 
 
 class User(SQLModel, table=True):
@@ -32,6 +35,7 @@ class Profile(SQLModel, table=True):
     bio: Optional[str] = ""
     location: Optional[str] = ""
     profile_picture: Optional[str] = None
+    resume_link: Optional[str] = ""
 
 
 class ProfileLink(SQLModel, table=True):
@@ -132,6 +136,7 @@ class Application(SQLModel, table=True):
     avatar: Optional[str]
     status:Optional[str]
     deleted_at: Optional[datetime] = None
+    
 
 
 
