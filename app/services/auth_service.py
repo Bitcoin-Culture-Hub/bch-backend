@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException,Cookie
 from fastapi.security import OAuth2PasswordBearer
+from typing import List, Optional
 
 SECRET_KEY = os.getenv("JWT_SECRET", "changeme")
 ALGORITHM = "HS256"
@@ -43,3 +44,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     print(payload)
     return {"user_id": payload["sub"]}  # UUID
 
+
+async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[dict]:
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+        if "sub" not in payload:
+            return None
+        return {"user_id": payload["sub"]}
+    except JWTError:
+        return None
