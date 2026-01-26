@@ -145,7 +145,7 @@ async def get_resume_download_url(
     # user=Depends(get_current_user),
 ):
     
-    if resume_key == null:
+    if resume_key == None:
         raise HTTPException(status_code=404, detail="Resume not found")
 
     url = s3_client.generate_presigned_url(
