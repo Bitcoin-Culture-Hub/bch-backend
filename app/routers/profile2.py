@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import List, Optional
 from app.db import get_session
-from app.models.model import Profile
+from app.models.model import OrganizationMember, Profile
 from app.services.auth_service import get_current_user
 import boto3, uuid
 import os

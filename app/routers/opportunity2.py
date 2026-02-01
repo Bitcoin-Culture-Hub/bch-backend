@@ -47,7 +47,6 @@ class ApplyRequest(BaseModel):
     location: str | None = None
     avatar: str | None = None
     status:str
-    resume_link: Optional[str]
 
 class ApplicationRead(BaseModel):
     id: str
@@ -144,7 +143,6 @@ async def delete_opportunity(
     if not opp or opp.org_id != org_id:
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
-    # delete children first (no cascades)
     await session.exec(
         delete(OpportunityCategory).where(
             OpportunityCategory.opportunity_id == opportunity_id
@@ -168,7 +166,7 @@ async def delete_opportunity(
 
 
 
-
+# changed here 
 @router.get("/", response_model=list[OpportunityRead])
 async def list_opportunities(
     org_id: str,
@@ -180,7 +178,7 @@ async def list_opportunities(
             Organization.name.label("org_name")
         )
         .join(Organization, Organization.id == Opportunity.org_id)
-        .where(Opportunity.org_id == org_id)
+        .where(Opportunity.org_id == org_id,Organization.deleted_at.is_(None))
     )
 
     results = await session.exec(stmt)
@@ -298,12 +296,12 @@ async def get_opportunity(
 
 @router.post("/{opp_id}/apply")
 async def apply(
-    org_id: str,
     opp_id: str,
     data: ApplyRequest,
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    print(data,'running ')
     application = Application(
         opportunity_id=opp_id,
         user_id=user["user_id"],
@@ -314,7 +312,7 @@ async def apply(
         applied_at=datetime.utcnow(),
         status=data.status        
     )
-
+    print(application)
     session.add(application)
     try:
         await session.commit()

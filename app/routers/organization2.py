@@ -109,9 +109,28 @@ async def my_orgs(
     result = await session.exec(
         select(Organization)
         .join(OrganizationMember)
-        .where(OrganizationMember.user_id == user["user_id"])
+        .where(OrganizationMember.user_id == user["user_id"],Organization.deleted_at.is_(None))
     )
+
     return result.all()
+
+@router.get("/owned-orgs")
+async def owned_orgs(
+        user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = (
+        select(Organization)
+        .join(OrganizationMember, OrganizationMember.org_id == Organization.id)
+        .where(
+            OrganizationMember.user_id == user["user_id"],
+            OrganizationMember.role == "owner"
+        )
+    )
+
+    result = await session.exec(stmt)
+    orgs = result.all()
+    return orgs
 
 
 @router.get("/{org_id}")
@@ -258,46 +277,107 @@ async def remove_member(
 
     return {"message": f"User {member.user_id} removed from organization {org_id}"}
     
-@router.delete("/{org_id}")
-async def delete_organization(org_id: str, session: AsyncSession = Depends(get_session)):
-    org = session.get(Organization, org_id)
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    
+@router.patch("/{org_id}/archive")
+async def archive_organization(
+    org_id: str,
+    session: AsyncSession = Depends(get_session)
+):
     now = datetime.utcnow()
-    
-    org.deleted_at = now
-    session.add(org)
 
-    org_members_stmt = select(OrganizationMember).where(OrganizationMember.org_id == org_id)
-    org_members: List[OrganizationMember] = session.exec(org_members_stmt).all()
-    for member in org_members:
-        member.deleted_at = now
-        session.add(member)
-    
-    opp_stmt = select(Opportunity).where(Opportunity.org_id == org_id)
-    opportunities: List[Opportunity] = session.exec(opp_stmt).all()
-    
-    for opp in opportunities:
-        app_stmt = select(Application).where(Application.opportunity_id == opp.id)
-        applications: List[Application] = session.exec(app_stmt).all()
-        for app in applications:
-            app.deleted_at = now
-            session.add(app)
-        
-        cat_stmt = select(OpportunityCategory).where(OpportunityCategory.opportunity_id == opp.id)
-        categories: List[OpportunityCategory] = session.exec(cat_stmt).all()
-        for cat in categories:
-            cat.deleted_at = now
-            session.add(cat)
-        
-        opp.deleted_at = now
-        session.add(opp)
-    
-    session.commit()
-    
-    return {"message": f"Organization {org.name} and all related data have been soft-deleted."}
+    async with session.begin():
+        org = await session.get(Organization, org_id)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
 
+        if org.deleted_at is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization already archived"
+            )
+
+        org.deleted_at = now
+        session.add(org)
+
+        members = await session.exec(
+            select(OrganizationMember).where(OrganizationMember.org_id == org_id)
+        )
+        for member in members.all():
+            member.deleted_at = now
+
+        opps = await session.exec(
+            select(Opportunity).where(Opportunity.org_id == org_id)
+        )
+        opportunities = opps.all()
+
+        for opp in opportunities:
+            apps = await session.exec(
+                select(Application).where(Application.opportunity_id == opp.id)
+            )
+            for app in apps.all():
+                app.deleted_at = now
+
+            cats = await session.exec(
+                select(OpportunityCategory).where(
+                    OpportunityCategory.opportunity_id == opp.id
+                )
+            )
+            for cat in cats.all():
+                cat.deleted_at = now
+
+            opp.deleted_at = now
+
+    return {
+        "message": f"Organization {org.name} and all related data archived successfully"
+    }
+
+
+
+@router.patch("/{org_id}/unarchive")
+async def unarchive_organization(
+    org_id: str,
+    session: AsyncSession = Depends(get_session)
+):
+    async with session.begin():
+        org = await session.get(Organization, org_id)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        if org.deleted_at is None:
+            raise HTTPException(status_code=400, detail="Organization is not archived")
+
+        org.deleted_at = None
+
+        members_result = await session.exec(
+            select(OrganizationMember).where(OrganizationMember.org_id == org_id)
+        )
+        for member in members_result.all():
+            member.deleted_at = None
+
+        opps_result = await session.exec(
+            select(Opportunity).where(Opportunity.org_id == org_id)
+        )
+        opportunities = opps_result.all()
+
+        for opp in opportunities:
+            apps_result = await session.exec(
+                select(Application).where(Application.opportunity_id == opp.id)
+            )
+            for app in apps_result.all():
+                app.deleted_at = None
+
+            cats_result = await session.exec(
+                select(OpportunityCategory).where(
+                    OpportunityCategory.opportunity_id == opp.id
+                )
+            )
+            for cat in cats_result.all():
+                cat.deleted_at = None
+
+            opp.deleted_at = None
+
+    return {
+        "message": f"Organization {org.name} has been unarchived."
+    }
 @router.get("/{org_id}/prompts")
 async def get_org_prompts(
     org_id: str,
