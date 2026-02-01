@@ -35,22 +35,24 @@ class ApplicationRead(SQLModel):
 
 
 @router.get("/orgs")
-async def my_orgs(
+async def all_orgs(
     session: AsyncSession = Depends(get_session)
 ):
     print(session)
     result = await session.exec(
-        select(Organization)
+        select(Organization).where(Organization.deleted_at.is_(None))
     )
-    print(result,'print statememt')
     return result.all()
+
+
+
 
 
 @router.get("/opportunity", response_model=List[OpportunityRead])
 async def all_opportunities(session: AsyncSession = Depends(get_session)):
     stmt = (
         select(Opportunity, Organization.name.label("org_name"))
-        .join(Organization, Organization.id == Opportunity.org_id)
+        .join(Organization, Organization.id == Opportunity.org_id).where(Opportunity.deleted_at.is_(None))
     )
     results = await session.exec(stmt)
     opportunities_with_org = results.all()
@@ -84,7 +86,6 @@ async def user_applicants(
 ):
     user_id = user["user_id"]
 
-    # Select Application + Opportunity title and type
     stmt = (
         select(
             Application,
@@ -92,7 +93,7 @@ async def user_applicants(
             Opportunity.type.label("opportunity_type")
         )
         .join(Opportunity, Opportunity.id == Application.opportunity_id)
-        .where(Application.user_id == user_id)
+        .where(Application.user_id == user_id,Application.deleted_at.is_(None))# changed here
     )
 
     result = await session.exec(stmt)
