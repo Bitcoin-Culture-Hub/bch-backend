@@ -20,7 +20,7 @@ class OrgInvite(SQLModel, table=True):
     org_id: str
     role: str
     token: str
-    used: bool = False
+    # used: bool = False changed
     expires_at: datetime
 
 class UserCreate(BaseModel):
@@ -52,7 +52,7 @@ async def create_invite(data: InviteCreateRequest, session: AsyncSession = Depen
     session.add(invite)
     await session.commit()
     await session.refresh(invite)
-    link = f"https://www.bitcoinculturehub.com//register?token={invite.token}"
+    link = f"https://www.bitcoinculturehub.com/auth?token={invite.token}"
     return {"invite_link": link, "expires_at": invite.expires_at}
 
 
@@ -65,14 +65,12 @@ async def accept_invite(
     invite = (await session.exec(select(OrgInvite).where(OrgInvite.token == token))).first()
     if not invite:
         raise HTTPException(404, "Invalid invite")
-    if invite.used:
-        raise HTTPException(400, "Invite already used")
     if invite.expires_at < datetime.utcnow():
         raise HTTPException(400, "Invite expired")
 
     if user:
         session.add(OrganizationMember(org_id=invite.org_id, user_id=user["user_id"], role=invite.role))
-        invite.used = True
+
         await session.commit()
         return {"ok": True, "org_id": invite.org_id}
 
@@ -85,11 +83,10 @@ async def signup(user: UserCreate, session: AsyncSession = Depends(get_session))
         raise HTTPException(409, "Email already registered")
 
     invite = None
-    print(user, 'IS THE USER')
+
     if user.invite_token:
         invite = (await session.exec(select(OrgInvite).where(OrgInvite.token == user.invite_token))).first()
         if not invite: raise HTTPException(400, "Invalid invite")
-        if invite.used: raise HTTPException(400, "Invite already used")
         if invite.expires_at < datetime.utcnow(): raise HTTPException(400, "Invite expired")
 
     db_user = User(email=user.email, hashed_password=hash_password(user.password))
@@ -101,7 +98,6 @@ async def signup(user: UserCreate, session: AsyncSession = Depends(get_session))
 
     if invite:
         session.add(OrganizationMember(org_id=invite.org_id, user_id=db_user.id, role=invite.role))
-        invite.used = True
         session.add(invite)
 
     await session.commit()
