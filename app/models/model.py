@@ -8,6 +8,10 @@ from datetime import date
 import boto3
 
 
+class UpdateStatusRequest(SQLModel):
+    org_id:str
+    applicant_id: str
+    status: str
 
 
 class User(SQLModel, table=True):

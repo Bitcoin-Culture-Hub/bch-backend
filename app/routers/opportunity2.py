@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
-from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType,Profile
+from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType,Profile,UpdateStatusRequest
 from ..db import get_session
 from ..services.auth_service import get_current_user
 
@@ -348,4 +348,29 @@ async def list_applicants(
 
     return apps
 
+@router.put("/{opp_id}/applicants")
+async def update_applicant_status(
+    payload: UpdateStatusRequest,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    print(payload, ' Is the')
+    # ensure user is the admin
+    await ensure_member(payload.org_id, user["user_id"], session)
+    """
+    Update the status of an applicant.
+    """
+    # Fetch the application
+    result = await session.exec(
+        select(Application).where(Application.id == payload.applicant_id)
+    )
+    app = result.scalar_one_or_none()
+    if not app:
+        raise HTTPException(status_code=404, detail="Applicant not found")
 
+    # Update the status
+    app.status = payload.status
+    await session.commit()
+    await session.refresh(app)
+
+    return {"id": app.id, "status": app.status}

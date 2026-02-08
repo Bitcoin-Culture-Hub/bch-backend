@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from boto3.dynamodb.conditions import Key,Attr
 from pydantic import BaseModel
 
+from app.routers.opportunity2 import ensure_member
+
 from ..services.auth_service import get_current_user
 from ..models.model import OpportunityCategory, OpportunityRead, Organization,Opportunity
 import boto3
@@ -16,6 +18,7 @@ from ..services.auth_service import get_current_user
 from app.db import get_session
 from ..models.model import OrganizationMember, Application
 router = APIRouter(prefix="/general", tags=["organizations"])
+from fastapi import Query
 
 
 class ApplicationRead(SQLModel):
@@ -32,7 +35,8 @@ class ApplicationRead(SQLModel):
     opportunity_type:Optional[str]
     class Config:
         orm_mode = True
-
+class UpdateApplicationStatusPayload(BaseModel):
+    action: str
 
 @router.get("/orgs")
 async def all_orgs(
@@ -106,3 +110,38 @@ async def user_applicants(
         )
         for application, opportunity_name, opportunity_type in result.all()
     ]
+
+@router.put("/applications/{app_id}/status", response_model=dict)
+async def update_application_status(
+    app_id: str,
+    payload: UpdateApplicationStatusPayload,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.exec(
+        select(Application).where(Application.id == app_id)
+    )
+    print(result, ' is the result')
+    app = result.one_or_none()
+
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+
+    action = payload.action.lower()
+
+    if action == "in_progress":
+        app.status = "in_progress"
+    elif action == "rejected":
+        app.status = "rejected"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid action. Must be 'in_progress' or 'rejected'.",
+        )
+
+    await session.commit()
+    await session.refresh(app)
+
+    return {"id": app.id, "status": app.status}
+
