@@ -62,7 +62,7 @@ async def ensure_org_owner(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org_id,
             OrganizationMember.user_id == user_id,
-            OrganizationMember.role == "OWNER",
+            OrganizationMember.role.lower() == "owner",
         )
     )
 
@@ -456,7 +456,7 @@ async def is_org_owner(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org_id,
             OrganizationMember.user_id == user["user_id"],
-            OrganizationMember.role == "owner",
+            OrganizationMember.role.lower() == "owner",
         )
     )
 
