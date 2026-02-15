@@ -6,6 +6,7 @@ from sqlalchemy import UniqueConstraint
 import uuid
 from datetime import date
 import boto3
+from sqlalchemy import Enum as SAEnum
 
 
 class UpdateStatusRequest(SQLModel):
@@ -187,6 +188,23 @@ class Bitcoin_Events(SQLModel, table=True):
 
     twitter_url: Optional[str] = None
     website_url: Optional[str] = None
+    
+
+class InterviewSlot(SQLModel, table=True):
+    __tablename__ = "interview_slots"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    opportunity_id: str = Field(foreign_key="opportunity.id", index=True)
+    interview_datetime: datetime
+    applicant_id: Optional[str] = Field(default=None, foreign_key="application.id")
+    status: str = Field(
+        sa_column=SAEnum("pending", "booked", "cancelled", name="slot_status_enum"),
+        default="pending",
+    )
+
+    # Relationships
+    opportunity: Optional["Opportunity"] = Relationship()
+    applicant: Optional["Application"] = Relationship()
     
 OpportunityCategory.opportunity = Relationship(back_populates="categories")
 Tools.opportunity = Relationship(back_populates="tools")

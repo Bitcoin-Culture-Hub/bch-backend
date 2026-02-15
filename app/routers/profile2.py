@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import List, Optional
 from app.db import get_session
-from app.models.model import OrganizationMember, Profile
+from app.models.model import Application, InterviewSlot, OrganizationMember, Profile
 from app.services.auth_service import get_current_user
 import boto3, uuid
 import os
@@ -26,6 +26,10 @@ class ProfileUpdate(BaseModel):
     location: str | None = None
     resume_link :Optional[str]
 
+class ReadInterviewRequest(BaseModel):
+    slot_id:str
+    org_id:str
+    
 
 async def ensure_member(org_id: str, user_id: str, session: AsyncSession):
     result = await session.exec(
@@ -159,3 +163,95 @@ async def get_resume_download_url(
     )
 
     return {"url": url}
+
+
+@router.patch("/select-time")
+async def pick_interview_time(
+    payload: ReadInterviewRequest,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    # ensure user is the admin for the organization
+    # select the application that is being accepted
+    # Check that the applicant has an application for this opportunity
+    result = await session.exec(
+        select(InterviewSlot).where(
+            InterviewSlot.id == payload.slot_id,
+        )
+    )
+    
+    
+    application = result.one()
+    if not application:
+        raise HTTPException(status_code=404, detail="interview time not found for this applicant")
+    # get the opp id the job wants
+    application.status = "booked"
+    app_id = application.applicant_id 
+    opp_id = application.opportunity_id
+    others_result  = await session.exec(
+        select(InterviewSlot).where(InterviewSlot.id != application.id, 
+                                    InterviewSlot.applicant_id == app_id, 
+                                    InterviewSlot.opportunity_id == opp_id)
+        )
+    for other in others_result.all():
+        other.status = "cancelled"
+
+    await session.commit()
+    
+    
+@router.get("/my-interviews")
+async def get_my_booked_interviews(
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.exec(
+        select(Application.id).where(
+            Application.user_id == user["user_id"]
+        )
+    )
+    application_ids = result.all()
+
+    if not application_ids:
+        return []
+
+    slots_result = await session.exec(
+        select(InterviewSlot).where(
+            InterviewSlot.applicant_id.in_(application_ids),
+            InterviewSlot.status == "booked"
+        ).order_by(InterviewSlot.interview_datetime)
+    )
+
+    booked_slots = slots_result.all()
+
+    return booked_slots
+
+
+@router.get("/pending-selection")
+async def get_pending_interview_slots(
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get all interview slots where the user needs to select a time (status: pending)"""
+    # Get all application IDs for this user
+    result = await session.exec(
+        select(Application.id).where(
+            Application.user_id == user["user_id"]
+        )
+    )
+    print(result)
+    application_ids = result.all()
+
+    if not application_ids:
+        return []
+
+    # Get all pending interview slots for these applications
+    slots_result = await session.exec(
+        select(InterviewSlot).where(
+            InterviewSlot.applicant_id.in_(application_ids),
+            InterviewSlot.status == "pending"
+        ).order_by(InterviewSlot.interview_datetime)
+    )
+
+    pending_slots = slots_result.all()
+
+    return pending_slots

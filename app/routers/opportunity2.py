@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
-from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType,Profile,UpdateStatusRequest
+from ..models.model import Organization, OrganizationMember, OpportunityCategory, Opportunity,Application,OpportunityRead,Tools,OutputType,Profile,UpdateStatusRequest, InterviewSlot
 from ..db import get_session
 from ..services.auth_service import get_current_user
 
@@ -63,6 +63,16 @@ class ApplicationRead(BaseModel):
 
     class Config:
         orm_mode = True
+        
+        
+class CreateInterviewSlotsRequest(BaseModel):
+    org_id: str
+    applicant_id: str
+    slots: List[datetime]  
+    
+class ReadInterviewRequest(BaseModel):
+    slot_id:str
+    
 async def ensure_member(org_id: str, user_id: str, session: AsyncSession):
     result = await session.exec(
         select(OrganizationMember).where(
@@ -374,3 +384,41 @@ async def update_applicant_status(
     await session.refresh(app)
 
     return {"id": app.id, "status": app.status}
+
+
+@router.post("/{opp_id}/assign-slot")
+async def assign_interview_slots(
+    opp_id: str,
+    payload: CreateInterviewSlotsRequest,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await ensure_member(payload.org_id, user["user_id"], session)
+
+    result = await session.exec(
+        select(Application).where(
+            Application.id == payload.applicant_id,
+            Application.opportunity_id == opp_id
+        )
+    )
+    application = result.scalar_one_or_none()
+
+    if not application:
+        raise HTTPException(404, "Application not found")
+
+    created_slots = []
+
+    for slot_time in payload.slots:
+        slot = InterviewSlot(
+            opportunity_id=opp_id,
+            applicant_id=payload.applicant_id,
+            interview_datetime=slot_time,
+            status="pending"
+        )
+        session.add(slot)
+        created_slots.append(slot)
+
+    await session.commit()
+
+    return {"created_count": len(created_slots)}
+

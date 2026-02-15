@@ -8,6 +8,7 @@ from app.db import get_session
 from ..models.model import OpportunityCategory, Organization, OrganizationMember, OrganizationRead,Opportunity,Application, OrganizationPrompts, Profile
 from app.services.auth_service import get_current_user
 from pydantic import BaseModel
+from sqlalchemy import func
 
 router = APIRouter(prefix="/org", tags=["organizations"])
 
@@ -456,10 +457,11 @@ async def is_org_owner(
         select(OrganizationMember).where(
             OrganizationMember.org_id == org_id,
             OrganizationMember.user_id == user["user_id"],
-            OrganizationMember.role.lower() == "owner",
+            func.lower(OrganizationMember.role) == "owner",
         )
     )
 
     return {
         "is_owner": result.first() is not None
     }
+

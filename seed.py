@@ -1,29 +1,36 @@
-# seed.py
-from app.db import SessionLocal, Base, engine
-from app.models import User
-from app.utils import hash_password
+import boto3
+from botocore.exceptions import ClientError
 
-# make sure tables exist
-Base.metadata.create_all(bind=engine)
+def create_email_template():
+    # Create SES client
+    client = boto3.client(
+        "ses",
+        region_name="us-east-1"  # change if needed
+    )
 
-db = SessionLocal()
-
-users = [
-    {"username": "chandu", "email": "a@b.com", "password": "secret"},
-    {"username": "alice", "email": "alice@example.com", "password": "password1"},
-    {"username": "bob", "email": "bob@example.com", "password": "password2"},
-]
-
-for u in users:
-    if not db.query(User).filter(User.email == u["email"]).first():
-        new_user = User(
-            username=u["username"],
-            email=u["email"],
-            hashed_password=hash_password(u["password"]),
+    try:
+        response = client.create_template(
+            Template={
+                "TemplateName": "welcome_email",
+                "SubjectPart": "Welcome to Our Platform!",
+                "TextPart": "Hello {{name}},\n\nWelcome to our platform!",
+                "HtmlPart": """
+                <html>
+                  <body>
+                    <h1>Hello {{name}},</h1>
+                    <p>Welcome to our platform!</p>
+                  </body>
+                </html>
+                """
+            }
         )
-        db.add(new_user)
 
-db.commit()
-db.close()
+        print("Template created successfully!")
+        print(response)
 
-print("Seed data inserted")
+    except ClientError as e:
+        print("Error creating template:", e.response["Error"]["Message"])
+
+
+if __name__ == "__main__":
+    create_email_template()
