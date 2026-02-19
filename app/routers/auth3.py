@@ -122,3 +122,6 @@ async def login(data: UserLogin, session: AsyncSession = Depends(get_session)):
         "location": profile.location,
         "profile_picture": profile.profile_picture,
     }
+
+
+@router.post("/auth")
