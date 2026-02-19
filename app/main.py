@@ -1,15 +1,20 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import  health, users, explore,item,opportunity2,organization2,profile2,auth3,general_organization,events,email
-#from .db import Base, engine
-from app.db import db
+from app.db import db, engine
+from sqlmodel import SQLModel
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    yield
 
-#Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Bitcoin Culture Hub API")
+app = FastAPI(title="Bitcoin Culture Hub API", lifespan=lifespan)
 
 origins = [
     "http://localhost:5173",  # for Vite frontend
