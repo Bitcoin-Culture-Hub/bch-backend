@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import List, Optional
 from app.db import get_session
-from app.models.model import Application, InterviewSlot, OrganizationMember, Profile
+from app.models.model import Application, InterviewSlot, Opportunity, Organization, OrganizationMember, Profile
 from app.services.auth_service import get_current_user
 import boto3, uuid
 import os
@@ -206,7 +206,7 @@ async def get_my_booked_interviews(
 ):
     result = await session.exec(
         select(Application.id).where(
-            Application.user_id == user["user_id"]
+            Application.user_id == user["user_id"],Application.deleted_at == None
         )
     )
     application_ids = result.all()
@@ -215,15 +215,25 @@ async def get_my_booked_interviews(
         return []
 
     slots_result = await session.exec(
-        select(InterviewSlot).where(
+        select(InterviewSlot,Opportunity.title, Organization.name,Organization.meeting_link)
+        .join(Opportunity, InterviewSlot.opportunity_id == Opportunity.id)
+        .join(Organization,Opportunity.org_id == Organization.id)
+        .where(
             InterviewSlot.applicant_id.in_(application_ids),
             InterviewSlot.status == "booked"
         ).order_by(InterviewSlot.interview_datetime)
     )
 
     booked_slots = slots_result.all()
-
-    return booked_slots
+    return [
+        {
+            **slot.model_dump(),
+            "opportunity_title": title,
+            "org_name": org_name,
+            "meeting_link":meeting_link
+        }
+        for slot, title, org_name,meeting_link in booked_slots
+    ]
 
 
 @router.get("/pending-selection")
@@ -232,26 +242,34 @@ async def get_pending_interview_slots(
     session: AsyncSession = Depends(get_session),
 ):
     """Get all interview slots where the user needs to select a time (status: pending)"""
-    # Get all application IDs for this user
     result = await session.exec(
         select(Application.id).where(
-            Application.user_id == user["user_id"]
+            Application.user_id == user["user_id"],Application.deleted_at == None 
         )
     )
-    print(result)
     application_ids = result.all()
 
     if not application_ids:
         return []
 
-    # Get all pending interview slots for these applications
     slots_result = await session.exec(
-        select(InterviewSlot).where(
+        select(InterviewSlot, Opportunity.title, Organization.name)
+        .join(Opportunity, InterviewSlot.opportunity_id == Opportunity.id)
+        .join(Organization, Opportunity.org_id == Organization.id)
+        .where(
             InterviewSlot.applicant_id.in_(application_ids),
             InterviewSlot.status == "pending"
-        ).order_by(InterviewSlot.interview_datetime)
+        )
+        .order_by(InterviewSlot.interview_datetime)
     )
 
     pending_slots = slots_result.all()
 
-    return pending_slots
+    return [
+        {
+            **slot.model_dump(),
+            "opportunity_title": title,
+            "org_name": org_name,
+        }
+        for slot, title, org_name in pending_slots
+    ]

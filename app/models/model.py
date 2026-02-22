@@ -13,6 +13,7 @@ class UpdateStatusRequest(SQLModel):
     org_id:str
     applicant_id: str
     status: str
+    opp_id:str
 
 
 class User(SQLModel, table=True):
@@ -58,6 +59,7 @@ class Organization(SQLModel, table=True):
     description: Optional[str]
     status: str = "pending"
     owner_id: str = Field(foreign_key="user.id")
+    meeting_link:Optional[str]
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
     deleted_at: Optional[datetime] = None
 
@@ -168,6 +170,7 @@ class OrganizationRead(SQLModel):
     location: Optional[str]
     email: Optional[str]
     description: Optional[str]
+    meeting_link:Optional[str]
     status: str = "pending"
     owner_id: str = Field(foreign_key="user.id")
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
