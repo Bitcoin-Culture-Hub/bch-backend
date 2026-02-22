@@ -5,7 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from app.db import get_session
-from ..models.model import OpportunityCategory, Organization, OrganizationMember, OrganizationRead,Opportunity,Application, OrganizationPrompts, Profile
+from ..models.model import InterviewSlot, OpportunityCategory, Organization, OrganizationMember, OrganizationRead,Opportunity,Application, OrganizationPrompts, Profile
 from app.services.auth_service import get_current_user
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -26,6 +26,7 @@ class OrgCreate(BaseModel):
     location: str | None = None
     email: str | None = None
     description: str | None = None
+    meeting_link:str | None  = None
     
     
 class OrgUpdate(BaseModel):
@@ -34,6 +35,7 @@ class OrgUpdate(BaseModel):
     location: str | None = None
     email: str | None = None
     description: str | None = None
+    meeting_link: str | None = None
 
 class OrgPromptUpdate(BaseModel):
     prompt_key: str
@@ -308,8 +310,10 @@ async def archive_organization(
         opps = await session.exec(
             select(Opportunity).where(Opportunity.org_id == org_id)
         )
+        
+        
         opportunities = opps.all()
-
+        opp_ids = []
         for opp in opportunities:
             apps = await session.exec(
                 select(Application).where(Application.opportunity_id == opp.id)
@@ -326,6 +330,11 @@ async def archive_organization(
                 cat.deleted_at = now
 
             opp.deleted_at = now
+            opp_ids.append(opp.id)
+        interviews = await session.exec(
+            select(InterviewSlot).where(InterviewSlot.opportunity_id.in_(opp_ids))
+        )
+        
 
     return {
         "message": f"Organization {org.name} and all related data archived successfully"

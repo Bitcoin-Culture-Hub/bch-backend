@@ -311,7 +311,6 @@ async def apply(
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    print(data,'running ')
     application = Application(
         opportunity_id=opp_id,
         user_id=user["user_id"],
@@ -362,14 +361,10 @@ async def list_applicants(
 async def update_applicant_status(
     payload: UpdateStatusRequest,
     user=Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session)
 ):
-    print(payload, ' Is the')
-    # ensure user is the admin
     await ensure_member(payload.org_id, user["user_id"], session)
-    """
-    Update the status of an applicant.
-    """
+
     # Fetch the application
     result = await session.exec(
         select(Application).where(Application.id == payload.applicant_id)
@@ -377,9 +372,25 @@ async def update_applicant_status(
     app = result.scalar_one_or_none()
     if not app:
         raise HTTPException(status_code=404, detail="Applicant not found")
+    old_status = app.status
+    new_status = payload.status
 
-    # Update the status
+    if old_status == new_status:
+        return {"id": app.id, "status": "nothing changed"}
+    # Delete all interview slots for this applicant and opportunity
+    cancel_interview = await session.exec(
+        select(InterviewSlot).where(
+            InterviewSlot.applicant_id == payload.applicant_id,
+            InterviewSlot.opportunity_id == payload.opp_id
+        )
+    )
+    interviews = cancel_interview.scalars().all()
+
+    for interview in interviews:
+        await session.delete(interview)
+
     app.status = payload.status
+
     await session.commit()
     await session.refresh(app)
 
